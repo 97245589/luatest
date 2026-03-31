@@ -1,0 +1,31 @@
+LUA_API void (lua_traversal)(lua_State *L, int idx, void(*cb)(void*), void *p);
+LUA_API void lua_traversal(lua_State *L, int idx, void(*cb)(void*), void *p) {
+  Table *t;
+  lua_lock(L);
+  t = gettable(L, idx);
+  api_incr_top(L);
+  api_incr_top(L);
+
+  unsigned int asize = t->asize;
+  unsigned int i;
+  for (i = 0; i < asize; i++) {
+    lu_byte tag = *getArrTag(t, i);
+    if (!tagisempty(tag)) {
+      setivalue(s2v(L->top.p-2), cast_int(i)+1);
+      farr2val(t, i, tag, s2v(L->top.p-1));
+      cb(p);
+    }
+  }
+  for (i = 0; i < sizenode(t); i++) {
+    if (!isempty(gval(gnode(t, i)))) {
+      Node *n = gnode(t, i);
+      getnodekey(L, s2v(L->top.p-2), n);
+      setobj2s(L, L->top.p-1, gval(n));
+      cb(p);
+    }
+  }
+
+  L->top.p--;
+  L->top.p--;
+  lua_unlock(L);
+}

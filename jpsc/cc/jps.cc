@@ -1,0 +1,429 @@
+#include "jps.hpp"
+
+#include <algorithm>
+#include <iomanip>
+#include <set>
+#include <sstream>
+
+using namespace std;
+
+static const int16_t sweigh = 100;
+static const int16_t dweigh = 141;
+
+struct Pos_direct_cmp {
+  bool operator()(const Pos &lhs, const Pos &rhs) {
+    int dx = end_.x_ - start_.x_;
+    int dy = end_.y_ - start_.y_;
+    if (dx) dx = dx > 0 ? 1 : -1;
+    if (dy) dy = dy > 0 ? 1 : -1;
+    int l = abs(lhs.x_ - dx) + abs(lhs.y_ - dy);
+    int r = abs(rhs.x_ - dx) + abs(rhs.y_ - dy);
+    return l < r;
+  }
+  Pos start_;
+  Pos end_;
+};
+
+static vector<Pos> dirs = {{0, 1}, {0, -1}, {1, 0},  {-1, 0},
+                           {1, 1}, {-1, 1}, {1, -1}, {-1, -1}};
+static map<Pos, int8_t> dir_idx = {
+    {{0, 1}, 0}, {{0, -1}, 1}, {{1, 0}, 2}, {{-1, 0}, 3}};
+
+bool Jps::add_force_neighbor(State s, Pos dir) {
+  bool b = false;
+  Pos ps = {s.x_, s.y_};
+
+  force_neighbor(ps, dir, [&](Pos p, Pos dir) {
+    auto &pres = *ppres_;
+    if (auto it = pres.find(p); it != pres.end()) return;
+    State news;
+    news.x_ = p.x_;
+    news.y_ = p.y_;
+    news.cost_ = s.cost_ + dweigh;
+    news.weigh_ = 0;
+    news.dx_ = dir.x_;
+    news.dy_ = dir.y_;
+    cal_weigh(news);
+    add_jp(news, ps);
+    b = true;
+  });
+  return b;
+}
+
+bool Jps::add_jp_to_openlist(State p, Pos dir) {
+  if (dir.x_ && dir.y_) return false;
+  State s = p;
+  Pos ps = {s.x_, s.y_};
+  int len = search_jp_cache(ps, dir);
+  if (len <= 0) return false;
+
+  s.x_ += dir.x_ * len;
+  s.y_ += dir.y_ * len;
+  s.cost_ += sweigh * len;
+
+  bool b = add_force_neighbor(s, dir);
+  auto &pres = *ppres_;
+  if (b) {
+    if (pres.find({s.x_, s.y_}) == pres.end()) {
+      s.dx_ = dir.x_;
+      s.dy_ = dir.y_;
+      cal_weigh(s);
+      add_jp(s, ps);
+    }
+  }
+  return b;
+}
+
+void Jps::add_jp(State s, Pos pre) {
+  Pos ps = {s.x_, s.y_};
+  if (ps == pre) return;
+  auto &open_list = *popen_list_;
+  auto &pres = *ppres_;
+  if (pres.find(ps) != pres.end()) return;
+  // cout << "addjp " << s.x_ << "," << s.y_ << " " << (int)(s.dx_) << ","
+  //      << (int)(s.dy_) << " " << s.cost_ << " " << s.weigh_ << " " << pre.x_
+  //      << "," << pre.y_ << endl;
+  open_list.push(s);
+  pres[ps] = pre;
+}
+
+bool Jps::find_end(Pos p, Pos dir) {
+  if (dir.x_ && dir.y_) return false;
+  if (p == end_) return true;
+
+  int dx = end_.x_ - p.x_;
+  int dy = end_.y_ - p.y_;
+  if (dx) dx = dx > 0 ? 1 : -1;
+  if (dy) dy = dy > 0 ? 1 : -1;
+  if (dx != dir.x_ || dy != dir.y_) return false;
+
+  int16_t len = search_jp_cache(p, dir);
+  if (len <= 0) return false;
+  Pos newp;
+  newp.x_ = p.x_ + dx * len;
+  newp.y_ = p.y_ + dy * len;
+  if (p.x_ <= end_.x_ && p.y_ <= end_.y_ && end_.x_ <= newp.x_ and
+      end_.y_ <= newp.y_)
+    return true;
+  if (p.x_ >= end_.x_ && p.y_ >= end_.y_ && end_.x_ >= newp.x_ &&
+      end_.y_ >= newp.y_)
+    return true;
+  return false;
+}
+
+void Jps::cal_weigh(State &s) {
+  Pos p{s.x_, s.y_};
+  if (p == end_) {
+    s.weigh_ = 0;
+    return;
+  }
+  int distance = dis(p, end_);
+  if (!quick_) {
+    s.weigh_ = distance + s.cost_;
+  } else {
+    s.weigh_ = distance;
+  }
+}
+
+void Jps::force_neighbor(Pos p, Pos dir, function<void(Pos, Pos)> cb) {
+  if (dir.x_ && dir.y_) return;
+  Pos p1 = {(int16_t)(p.x_ + dir.y_), (int16_t)(p.y_ + dir.x_)};
+  Pos p11 = {(int16_t)(p1.x_ + dir.x_), (int16_t)(p1.y_ + dir.y_)};
+  if (side_check(p1) && side_check(p11)) {
+    if (!walkable(p1) && walkable(p11)) {
+      cb(p11, {(int16_t)(dir.x_ + dir.y_), (int16_t)(dir.y_ + dir.x_)});
+    }
+  }
+
+  Pos p2 = {(int16_t)(p.x_ - dir.y_), (int16_t)(p.y_ - dir.x_)};
+  Pos p21 = {(int16_t)(p2.x_ + dir.x_), (int16_t)(p2.y_ + dir.y_)};
+  if (side_check(p2) && side_check(p21)) {
+    if (!walkable(p2) && walkable(p21)) {
+      cb(p21, {(int16_t)(dir.x_ - dir.y_), (int16_t)(dir.y_ - dir.x_)});
+    }
+  }
+}
+
+string Jps::dump_jp_cache(Pos dir) {
+  ostringstream oss;
+  oss << "dir:" << dir.x_ << "," << dir.y_ << endl;
+  auto &dcache = jp_cache_[dir_idx[dir]];
+  for (int i = 0; i < dcache.size(); ++i) {
+    oss << i << ":";
+    for (int j = 0; j < dcache[i].size(); ++j) {
+      oss << dcache[i][j] << " ";
+    }
+    oss << endl;
+  }
+  return oss.str();
+
+  /*
+  for (int16_t j = world_.wid_ - 1; j >= 0; --j) {
+    for (int16_t i = 0; i < world_.len_; ++i) {
+      int val = search_jp_cache({i, j}, dir);
+      oss << setw(3) << val;
+    }
+    oss << endl;
+  }
+  return oss.str();
+  */
+}
+
+int Jps::search_jp_cache(Pos p, Pos dir) {
+  auto &dcache = jp_cache_[dir_idx[dir]];
+  vector<int16_t> cache;
+  vector<int16_t>::iterator it;
+  int16_t v;
+  if (dir.x_ == 0) {
+    cache = dcache[p.x_];
+    v = p.y_;
+    if (dir.y_ > 0) {
+      it = upper_bound(cache.begin(), cache.end(), v);
+    } else if (dir.y_ < 0) {
+      it = upper_bound(cache.begin(), cache.end(), v, greater<int16_t>());
+    }
+  }
+  if (dir.y_ == 0) {
+    cache = dcache[p.y_];
+    v = p.x_;
+    if (dir.x_ > 0) {
+      it = upper_bound(cache.begin(), cache.end(), v);
+    } else if (dir.x_ < 0) {
+      it = upper_bound(cache.begin(), cache.end(), v, greater<int16_t>());
+    }
+  }
+
+  if (it == cache.end()) return 0;
+  int idx = it - cache.begin();
+  if (idx % 2 == 0) return 0;
+  // cout << "search jp cache:" << p.x_ << "," << p.y_ << " " << dir.x_ << ","
+  //      << dir.y_ << " " << idx << "," << cache[idx] << "," << v << ","
+  //      << abs(cache[idx] - v) << endl;
+  return abs(cache[idx] - v);
+}
+
+void Jps::add_jp_cache(Pos p, Pos dir) {
+  auto &dcache = jp_cache_[dir_idx[dir]];
+  if (dir.x_ == 0) {
+    auto &cache = dcache[p.x_];
+    cache.push_back(p.y_);
+    return;
+  }
+  if (dir.y_ == 0) {
+    auto &cache = dcache[p.y_];
+    cache.push_back(p.x_);
+    return;
+  }
+}
+
+void Jps::line_jp_cache(Pos p, Pos dir) {
+  if (dir.x_ && dir.y_) return;
+  Pos q = p;
+  while (side_check(q) && !walkable(q)) {
+    q.x_ += dir.x_;
+    q.y_ += dir.y_;
+  }
+  if (!side_check(q)) return;
+
+  add_jp_cache(q, dir);
+  Pos t = q;
+  int i = 0;
+  while (1) {
+    bool fneig = false;
+    force_neighbor(t, dir, [&](Pos p1, Pos p2) { fneig = true; });
+    if (!walkable(t) || (fneig && i > 0)) {
+      if (!walkable(t)) --i;
+      Pos t2{(int16_t)(q.x_ + dir.x_ * i), (int16_t)(q.y_ + dir.y_ * i)};
+      add_jp_cache(t2, dir);
+      line_jp_cache(t, dir);
+      return;
+    }
+    t.x_ += dir.x_;
+    t.y_ += dir.y_;
+    ++i;
+  }
+}
+
+void Jps::block_jp_cache(int16_t minx, int16_t miny, int16_t maxx,
+                         int16_t maxy) {
+  if (minx > maxx || miny > maxy) return;
+  if (!side_check({minx, miny}) || !side_check({maxx, maxy})) return;
+  for (int16_t i = minx - 1; i <= maxx + 1; ++i) {
+    if (i < 0 || i > world_.len_ - 1) continue;
+    auto &dcache_1 = jp_cache_[dir_idx[{0, 1}]];
+    dcache_1[i] = {};
+    auto &dcache_2 = jp_cache_[dir_idx[{0, -1}]];
+    dcache_2[i] = {};
+    line_jp_cache({i, 0}, {0, 1});
+    line_jp_cache({i, (int16_t)(world_.wid_ - 1)}, {0, -1});
+  }
+  for (int16_t j = miny - 1; j <= maxy + 1; ++j) {
+    if (j < 0 || j > world_.wid_ - 1) continue;
+    auto &dcache_1 = jp_cache_[dir_idx[{1, 0}]];
+    dcache_1[j] = {};
+    auto &dcache_2 = jp_cache_[dir_idx[{-1, 0}]];
+    dcache_2[j] = {};
+    line_jp_cache({0, j}, {1, 0});
+    line_jp_cache({(int16_t)(world_.len_ - 1), j}, {-1, 0});
+  }
+}
+
+void Jps::init_jp_cache() {
+  jp_cache_ = vector<vector<vector<int16_t>>>(4);
+  jp_cache_[0] = vector<vector<int16_t>>(world_.len_);
+  jp_cache_[1] = vector<vector<int16_t>>(world_.len_);
+  jp_cache_[2] = vector<vector<int16_t>>(world_.wid_);
+  jp_cache_[3] = vector<vector<int16_t>>(world_.wid_);
+  for (int16_t i = 0; i < world_.len_; ++i) {
+    line_jp_cache({i, 0}, {0, 1});
+    line_jp_cache({i, (int16_t)(world_.wid_ - 1)}, {0, -1});
+  }
+
+  for (int16_t j = 0; j < world_.wid_; ++j) {
+    line_jp_cache({0, j}, {1, 0});
+    line_jp_cache({(int16_t)(world_.len_ - 1), j}, {-1, 0});
+  }
+}
+
+int Jps::dis(Pos p1, Pos p2) {
+  double d = pow((p2.x_ - p1.x_), 2) + pow((p2.y_ - p1.y_), 2);
+  return sqrt(d) * 100;
+}
+
+bool Jps::step(State start, Pos dir) {
+  // cout << "step" << start.x_ << start.y_ << " " << (int)(dir.x_)
+  //      << (int)(dir.y_) << " " << endl;
+  start.dx_ = dir.x_;
+  start.dy_ = dir.y_;
+  State s = start;
+
+  while (1) {
+    if (!dir.x_ || !dir.y_) {
+      Pos ps = {s.x_, s.y_};
+      if (!walkable(ps)) return false;
+      if (find_end(ps, dir)) {
+        over_ = true;
+        add_jp({end_.x_, end_.y_, 0, 0, 0, 0}, ps);
+        return true;
+      }
+      if (add_jp_to_openlist(s, dir)) return true;
+      return false;
+    } else if (dir.x_ && dir.y_) {
+      Pos pstart = {start.x_, start.y_};
+      Pos ps = {s.x_, s.y_};
+      // cout << "===" << s.x_ << s.y_ << " " << (int)(dir.x_) <<
+      // (int)(dir.y_)
+      //      << endl;
+      bool b = false;
+      auto &pres = *ppres_;
+      b = add_force_neighbor(s, {dir.x_, 0}) || b;
+      b = add_force_neighbor(s, {0, dir.y_}) || b;
+      if (b) {
+        if (!(ps == pstart) && pres.end() == pres.find(ps)) {
+          pres[ps] = pstart;
+        }
+        int x = s.x_;
+        int y = s.y_;
+        int dx = dir.x_;
+        int dy = dir.y_;
+        bool b1 = side_check({(int16_t)(x + dx), (int16_t)y}) &&
+                  !walkable({(int16_t)(x + dx), (int16_t)y});
+        bool b2 = side_check({(int16_t)x, (int16_t)(y + dy)}) &&
+                  !walkable({(int16_t)x, (int16_t)(y + dy)});
+        bool b3 = side_check({(int16_t)(x + dx), (int16_t)(y + dy)}) &&
+                  walkable({(int16_t)(x + dx), (int16_t)(y + dy)});
+        // cout << x << y << " " << dx << dy << endl;
+        // cout << "check:" << b1 << b2 << b3 << endl;
+        if ((b1 || b2) && b3) return true;
+      }
+
+      s.x_ += dir.x_;
+      s.y_ += dir.y_;
+      s.cost_ += dweigh;
+      ps = {s.x_, s.y_};
+      if (!walkable(ps)) return false;
+      if (ps == end_) {
+        over_ = true;
+        s.weigh_ = 0;
+        add_jp(s, pstart);
+        return true;
+      }
+      // cout << s.x_ << "  " << s.y_ << endl;
+
+      bool r = false;
+      r = step(s, {dir.x_, 0}) || r;
+      r = step(s, {0, dir.y_}) || r;
+      if (r) {
+        if (pres.end() == pres.find(ps)) {
+          pres[ps] = pstart;
+          s.x_ += dir.x_;
+          s.y_ += dir.y_;
+          s.cost_ += dweigh;
+          cal_weigh(s);
+          ps = {s.x_, s.y_};
+          if (walkable(ps) && pres.end() == pres.find(ps)) {
+            add_jp(s, pstart);
+          }
+          return true;
+        }
+      }
+    }
+  }
+}
+
+void Jps::pathfind(Pos s, Pos e, vector<Pos> &ret) {
+  over_ = false;
+  start_ = s;
+  end_ = e;
+  if (!walkable(start_)) return;
+  if (!walkable(end_)) return;
+  if (s == e) return;
+
+  set<Pos> close_list;
+  map<Pos, Pos> pres;
+  priority_queue<State> open_list;
+  ppres_ = &pres;
+  popen_list_ = &open_list;
+
+  int weigh = dis(s, e);
+  open_list.push({s.x_, s.y_, 0, weigh, 0, 0});
+
+  while (!open_list.empty()) {
+    State st = open_list.top();
+    open_list.pop();
+    Pos pt = {.x_ = st.x_, .y_ = st.y_};
+    if (close_list.find(pt) != close_list.end()) continue;
+    close_list.insert(pt);
+
+    if (end_ == pt) {
+      ret.push_back(end_);
+      Pos p = end_;
+      while (pres.end() != pres.find(p)) {
+        p = pres[p];
+        ret.push_back(p);
+      }
+      return;
+    }
+
+    int8_t dx = st.dx_;
+    int8_t dy = st.dy_;
+    vector<Pos> dirs_;
+    if (!dx && !dy) {
+      Pos_direct_cmp p = {.start_ = s, .end_ = e};
+      dirs_ = dirs;
+      sort(dirs_.begin(), dirs_.end(), p);
+    } else if (dx && dy) {
+      dirs_.push_back({dx, 0});
+      dirs_.push_back({0, dy});
+      dirs_.push_back({dx, dy});
+    } else {
+      dirs_.push_back({dx, dy});
+    }
+    for (auto dir : dirs_) {
+      step(st, dir);
+      if (over_) break;
+    }
+  }
+  popen_list_ = nullptr;
+  ppres_ = nullptr;
+}
