@@ -187,13 +187,14 @@ int Lworld::delactor(lua_State* L) {
 int Lworld::search(lua_State* L) {
   World** pp = (World**)luaL_checkudata(L, 1, META);
   int64_t id = luaL_checkinteger(L, 2);
-  bool samecamp = lua_toboolean(L, 3);
-  int8_t rtype = luaL_checkinteger(L, 4);
-  float p1 = luaL_checknumber(L, 5);
-  float p2 = lua_tonumber(L, 6);
+  int16_t num = luaL_checkinteger(L, 3);
+  bool samecamp = lua_toboolean(L, 4);
+  int8_t rtype = luaL_checkinteger(L, 5);
+  float p1 = luaL_checknumber(L, 6);
+  float p2 = lua_tonumber(L, 7);
 
   World& world = **pp;
-  Search info{id, samecamp, rtype, p1, p2};
+  Search info{id, num, samecamp, rtype, p1, p2};
   vector<int64_t> ret;
   world.aoi_.search(info, ret);
   int size = ret.size();

@@ -98,10 +98,16 @@ void Aoi::aoi_ids(int64_t id, vector<int64_t>& ret) {
   });
 }
 
+struct Dis {
+  int64_t id_;
+  float dis_;
+};
 void Aoi::search(const Search& info, vector<int64_t>& ret) {
   auto& actor_ = world_.actor_;
   ret.reserve(32);
   int64_t id = info.id_;
+  int16_t num = info.num_;
+  if (num <= 0) return;
   bool samecamp = info.samecamp_;
   auto ait = actor_.find(id);
   if (ait == actor_.end()) return;
@@ -114,6 +120,7 @@ void Aoi::search(const Search& info, vector<int64_t>& ret) {
   Rvec d;
   d.x_ = actor.dx_;
   d.y_ = actor.dy_;
+  vector<Dis> dis;
   for (int64_t oid : ids) {
     auto oit = actor_.find(oid);
     if (oit == actor_.end()) continue;
@@ -121,7 +128,25 @@ void Aoi::search(const Search& info, vector<int64_t>& ret) {
     if (samecamp && actor.camp_ != oactor.camp_) continue;
     if (!samecamp && actor.camp_ == oactor.camp_) continue;
     Rvec op{.x_ = oactor.x_, .y_ = oactor.y_};
-    if (rangefunc(p, d, op)) ret.push_back(oid);
+    if (rangefunc(p, d, op)) {
+      Dis od;
+      od.id_ = oid;
+      float dx = oactor.x_ - actor.x_;
+      float dy = oactor.y_ - actor.y_;
+      od.dis_ = dx * dx + dy * dy;
+      dis.push_back(od);
+    }
+  }
+  if (dis.size() <= num) {
+    for (auto v : dis) {
+      ret.push_back(v.id_);
+    }
+  } else {
+    nth_element(dis.begin(), dis.begin() + num - 1, dis.end(),
+                [](Dis lhs, Dis rhs) { return lhs.dis_ < rhs.dis_; });
+    for (int i = 0; i < num; ++i) {
+      ret.push_back(dis[i].id_);
+    }
   }
 }
 

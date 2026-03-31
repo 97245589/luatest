@@ -12,6 +12,7 @@ struct World;
 
 struct Search {
   int64_t id_;
+  int16_t num_;
   bool samecamp_;
   int8_t rtp_;
   float p1_, p2_;
