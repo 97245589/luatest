@@ -20,7 +20,7 @@ local search = function()
     end
 
     print(dump(core:search(100, true, 1, 5)))
-    print(#core:areaids(100))
+    print(#core:aoiids(100))
 
     local t = os.time()
     for i = 1, 200000 do

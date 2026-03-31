@@ -14,7 +14,7 @@ static const vector<Dircost> DIRECT_COST = {
     {0, 1, LWEIGH}, {0, -1, LWEIGH}, {1, 0, LWEIGH},  {-1, 0, LWEIGH},
     {1, 1, HWEIGH}, {-1, 1, HWEIGH}, {1, -1, HWEIGH}, {-1, -1, HWEIGH}};
 
-inline static int cost(Astar::Pos s, Astar::Pos e) {
+inline static int cost(Pos s, Pos e) {
   int16_t dx = s.x_ - e.x_;
   int16_t dy = s.y_ - e.y_;
   return 100 * sqrt(dx * dx + dy * dy);

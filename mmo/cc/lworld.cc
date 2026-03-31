@@ -16,7 +16,7 @@ struct Lworld {
   static int delactor(lua_State*);
   static int dumpaoi(lua_State*);
   static int setpos(lua_State*);
-  static int areaids(lua_State*);
+  static int aoiids(lua_State*);
   static int search(lua_State*);
   static int setblock(lua_State*);
   static int astar(lua_State*);
@@ -30,8 +30,7 @@ int Lworld::addtimer(lua_State* L) {
   int64_t buffid = luaL_checkinteger(L, 3);
   int64_t endtm = luaL_checkinteger(L, 4);
   World& world = **pp;
-  World::Timerele ele{.id_ = id, .buffid_ = buffid, .endtm_ = endtm};
-  world.timer_.insert(ele);
+  world.timer_.insert({.id_ = id, .buffid_ = buffid, .endtm_ = endtm});
   return 0;
 }
 
@@ -59,7 +58,7 @@ int Lworld::expire(lua_State* L) {
 int Lworld::dumpaoi(lua_State* L) {
   World** pp = (World**)luaL_checkudata(L, 1, META);
   World& world = **pp;
-  auto& aoi = world.aoi_;
+  auto& aoi = world.aoi_.aoi_;
   ostringstream oss;
   oss << "aoiinfo:" << endl;
   for (auto& [p, ids] : aoi) {
@@ -74,13 +73,13 @@ int Lworld::dumpaoi(lua_State* L) {
   return 1;
 }
 
-int Lworld::areaids(lua_State* L) {
+int Lworld::aoiids(lua_State* L) {
   World** pp = (World**)luaL_checkudata(L, 1, META);
   int64_t id = luaL_checkinteger(L, 2);
 
   World& world = **pp;
   vector<int64_t> ret;
-  world.areaids(id, ret);
+  world.aoi_.aoi_ids(id, ret);
   if (ret.empty()) return 0;
   lua_createtable(L, ret.size(), 0);
   int c = 0;
@@ -110,7 +109,7 @@ int Lworld::astar(lua_State* L) {
   int16_t ey = luaL_checkinteger(L, 5);
   bool quick = lua_toboolean(L, 6);
   World& world = **pp;
-  vector<Common::Pos> ret;
+  vector<Pos> ret;
   world.astar_.find({sx, sy}, {ex, ey}, ret, quick);
   if (ret.empty()) return 0;
   int rsize = ret.size();
@@ -136,7 +135,7 @@ int Lworld::addactor(lua_State* L) {
   int8_t camp = luaL_checkinteger(L, 7);
 
   World& world = **pp;
-  World::Actor actor{x, y, dx, dy, camp};
+  Actor actor{x, y, dx, dy, camp};
   world.addactor(id, actor);
   return 0;
 }
@@ -194,9 +193,9 @@ int Lworld::search(lua_State* L) {
   float p2 = lua_tonumber(L, 6);
 
   World& world = **pp;
-  World::Search info{id, samecamp, rtype, p1, p2};
+  Search info{id, samecamp, rtype, p1, p2};
   vector<int64_t> ret;
-  world.search(info, ret);
+  world.aoi_.search(info, ret);
   int size = ret.size();
   if (size == 0) return 0;
   lua_createtable(L, size, 0);
@@ -224,7 +223,7 @@ int Lworld::create(lua_State* L) {
                     {"delactor", delactor},
                     {"dumpaoi", dumpaoi},
                     {"setpos", setpos},
-                    {"areaids", areaids},
+                    {"aoiids", aoiids},
                     {"search", search},
                     {"setblock", setblock},
                     {"astar", astar},

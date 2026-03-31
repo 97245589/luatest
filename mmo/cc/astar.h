@@ -7,7 +7,6 @@ using std::vector;
 
 struct World;
 struct Astar {
-  using Pos = Common::Pos;
   struct State {
     int16_t x_, y_;
     int cost_, weigh_;
