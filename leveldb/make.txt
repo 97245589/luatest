@@ -1,52 +1,11 @@
-cmake -DCMAKE_BUILD_TYPE=Release \
-      -DBUILD_SHARED_LIBS=ON \
-      -DSNAPPY_BUILD_TESTS=OFF \
-      -DSNAPPY_BUILD_BENCHMARKS=OFF ..
-
-mkdir -p build && cd build && cmake .. && cd ..
-g++ -shared -fPIC -o libsnappy.so \
-    snappy.cc \
-    snappy-sinksource.cc \
-    snappy-stubs-internal.cc \
-    snappy-c.cc \
-    -I. \
-    -I./build \
-    -O2 -DNDEBUG -std=c++11
+=====zstd
+zstd version 1.5 make
 
 g++ -shared -fPIC -o libleveldb.so \
-    -I./include -I. -I/home/yao/github/snappy-1.2.2 -I/home/yao/github/snappy-1.2.2/build \
-    -DLEVELDB_PLATFORM_POSIX \
-    -DHAVE_SNAPPY \
-    $(ls db/*.cc table/*.cc util/*.cc | grep -vE "_test.cc|_bench.cc|env_windows.cc|testutil.cc") \
-    helpers/memenv/memenv.cc \
-    -lsnappy -L./ -L3rd \
-    -Wl,-rpath,./:3rd \
-    -lpthread -O2 -DNDEBUG -std=c++11
-
-==========static============
-cmake .. \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-    -DSNAPPY_BUILD_TESTS=OFF \
-    -DSNAPPY_BUILD_BENCHMARKS=OFF
-
-g++ -shared -fPIC -o libleveldb.so \
-    -I./include -I. -I/home/yao/github/snappy-1.2.2 -I/home/yao/github/snappy-1.2.2/build \
-    -DLEVELDB_PLATFORM_POSIX \
-    -DHAVE_SNAPPY \
-    $(ls db/*.cc table/*.cc util/*.cc | grep -vE "_test.cc|_bench.cc|env_windows.cc|testutil.cc") \
-    helpers/memenv/memenv.cc \
-    -lsnappy -L/home/yao/github/snappy-1.2.2/build \
-    -lpthread -O2 -DNDEBUG -std=c++11
-
-    =====zstd
-    zstd version 1.5 make
-    
-    g++ -shared -fPIC -o libleveldb.so \
-    -I./include -I. -I/home/yao/github/zstd-1.5.7/lib \
-    -DLEVELDB_PLATFORM_POSIX \
-    -DHAVE_ZSTD \
-    $(ls db/*.cc table/*.cc util/*.cc | grep -vE "_test.cc|_bench.cc|env_windows.cc|testutil.cc") \
-    helpers/memenv/memenv.cc \
-    -lzstd -L/home/yao/github/zstd-1.5.7/lib \
-    -lpthread -O2 -DNDEBUG -std=c++17
+-I./include -I. -I/home/yao/github/zstd-1.5.7/lib \
+-DLEVELDB_PLATFORM_POSIX \
+-DHAVE_ZSTD \
+$(ls db/*.cc table/*.cc util/*.cc | grep -vE "_test.cc|_bench.cc|env_windows.cc|testutil.cc") \
+helpers/memenv/memenv.cc \
+-lzstd -L/home/yao/github/zstd-1.5.7/lib \
+-lpthread -O2 -DNDEBUG -std=c++17 -s
