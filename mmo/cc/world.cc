@@ -129,7 +129,10 @@ void World::aoidiff(int64_t aid, Pos bp, Pos np, vector<int64_t>& adds,
   });
   traversal_area(bp, [&](Pos g, uset& ids) {
     if (coincide(g, ngx, ngy)) return;
-    dels.insert(dels.end(), ids.begin(), ids.end());
+    for (int64_t id : ids) {
+      if (dels.size() >= AOIMAX * 2) return;
+      dels.push_back(id);
+    }
   });
 }
 
