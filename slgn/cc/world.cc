@@ -86,6 +86,12 @@ bool World::inview(Pos n, Pos e, Pos bl, Pos tr) {
     return v;
   };
   auto intersect = [=](Pos a, Pos b, Pos c, Pos d) {
+    if (std::max(a.x_, b.x_) < std::min(c.x_, d.x_) ||
+        std::max(c.x_, d.x_) < std::min(a.x_, b.x_) ||
+        std::max(a.y_, b.y_) < std::min(c.y_, d.y_) ||
+        std::max(c.y_, d.y_) < std::min(a.y_, b.y_)) {
+        return false;
+    }
     float c1 = cross(a, b, c);
     float c2 = cross(a, b, d);
     float c3 = cross(c, d, a);
@@ -96,8 +102,8 @@ bool World::inview(Pos n, Pos e, Pos bl, Pos tr) {
   if (inarea(n, bl, tr) || inarea(e, bl, tr)) return true;
   Pos p1{bl.x_, bl.y_};
   Pos p2{bl.x_, tr.y_};
-  Pos p3{tr.x_, bl.y_};
-  Pos p4{tr.x_, tr.y_};
+  Pos p3{tr.x_, tr.y_};
+  Pos p4{tr.x_, bl.y_};
   return intersect(n, e, p1, p2) || intersect(n, e, p2, p3) ||
          intersect(n, e, p3, p4) || intersect(n, e, p4, p1);
 }
