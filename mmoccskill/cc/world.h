@@ -39,8 +39,6 @@ struct World {
   void delactor(int64_t id);
   void setpos(int64_t id, float x, float y, int16_t dx, int16_t dy,
               vector<int64_t>& adds, vector<int64_t>& dels);
-
-  void useskill(int64_t id, int skillid);
 };
 
 #endif

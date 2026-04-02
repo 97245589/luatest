@@ -12,11 +12,13 @@ enum {
   DEF = 30,
 };
 
+struct World;
 struct Actor;
 struct Skill {
   struct Param {
     vector<float>& p_;
-    Param(vector<float>& p) : p_(p) {}
+    Skill& skill_;
+    Param(vector<float>& p, Skill& skill) : p_(p), skill_(skill) {}
     float operator[](int idx) {
       --idx;
       if (idx < 0 || idx >= p_.size()) return 0;
@@ -35,14 +37,15 @@ struct Skill {
   struct Buffcfg {
     int duration_;
   };
+  World& world_;
   hashtable<int, Func> func_;
   hashtable<int, Skillcfg> skillcfg_;
   hashtable<int, Buffcfg> buffcfg_;
 
-  Skill();
-  void init_skillcfg();
-  void init_buffcfg();
+  Skill(World& world);
   void init_skillfunc();
+
+  void useskill(int64_t id, int skillid);
 };
 
 namespace Skillfunc {

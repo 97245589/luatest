@@ -12,6 +12,8 @@ struct Lworld {
   static int create(lua_State*);
   static int gc(lua_State*);
 
+  static int skillcfg(lua_State*);
+  static int buffcfg(lua_State*);
   static int useskill(lua_State*);
   static int addactor(lua_State*);
   static int delactor(lua_State*);
@@ -22,12 +24,24 @@ struct Lworld {
   static int astar(lua_State*);
 };
 
+int Lworld::skillcfg(lua_State* L) {
+  World** pp = (World**)luaL_checkudata(L, 1, META);
+  int skillid = luaL_checkinteger(L, 2);
+  luaL_checktype(L, 3, LUA_TTABLE);
+  Skill::Skillcfg cfg;
+
+  World& world = **pp;
+  auto& skillcfg = world.skill_.skillcfg_;
+  skillcfg.insert({skillid, cfg});
+  return 0;
+}
+
 int Lworld::useskill(lua_State* L) {
   World** pp = (World**)luaL_checkudata(L, 1, META);
   int64_t id = luaL_checkinteger(L, 2);
   int skillid = luaL_checkinteger(L, 3);
   World& world = **pp;
-  world.useskill(id, skillid);
+  world.skill_.useskill(id, skillid);
   return 0;
 }
 
@@ -173,10 +187,17 @@ int Lworld::create(lua_State* L) {
   World** pp = (World**)lua_newuserdata(L, sizeof(p));
   *pp = p;
   if (luaL_newmetatable(L, META)) {
-    luaL_Reg l[] = {
-        {"useskill", useskill}, {"addactor", addactor}, {"delactor", delactor},
-        {"dumpaoi", dumpaoi},   {"setpos", setpos},     {"aoiids", aoiids},
-        {"setblock", setblock}, {"astar", astar},       {NULL, NULL}};
+    luaL_Reg l[] = {{"skillcfg", skillcfg},
+                    {"buffcfg", buffcfg},
+                    {"useskill", useskill},
+                    {"addactor", addactor},
+                    {"delactor", delactor},
+                    {"dumpaoi", dumpaoi},
+                    {"setpos", setpos},
+                    {"aoiids", aoiids},
+                    {"setblock", setblock},
+                    {"astar", astar},
+                    {NULL, NULL}};
     luaL_newlib(L, l);
     lua_setfield(L, -2, "__index");
     lua_pushcfunction(L, gc);

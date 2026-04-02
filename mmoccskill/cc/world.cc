@@ -6,7 +6,7 @@
 using namespace std;
 
 World::World(int16_t len, int16_t wid)
-    : len_(len), wid_(wid), astar_(*this), aoi_(*this) {}
+    : len_(len), wid_(wid), astar_(*this), aoi_(*this), skill_(*this) {}
 
 bool World::inarea(Pos p) {
   if (p.x_ < 0 || p.x_ > len_ - 1) return false;
@@ -71,30 +71,4 @@ void World::setpos(int64_t id, float fx, float fy, int16_t dx, int16_t dy,
   np.x_ = actor.x_;
   np.y_ = actor.y_;
   aoi_.diff(id, bp, np, adds, dels);
-}
-
-void World::useskill(int64_t id, int skillid) {
-  auto it = actor_.find(id);
-  if (it == actor_.end()) return;
-  Actor& actor = it->second;
-  auto& skillcfg = skill_.skillcfg_;
-  auto cit = skillcfg.find(skillid);
-  if (cit == skillcfg.end()) return;
-  auto& skillfunc = skill_.func_;
-  auto fit = skillfunc.find(skillid);
-  if (fit == skillfunc.end()) return;
-  Skill::Func func = fit->second;
-  if (!func) return;
-
-  Skill::Skillcfg& cfg = cit->second;
-  vector<int64_t> ids;
-  Search search{id, cfg.num_, cfg.samecamp_, cfg.rtp_, cfg.p1_, cfg.p2_};
-  aoi_.search(search, ids);
-  Skill::Param p(cfg.param_);
-  for (int64_t oid : ids) {
-    auto oit = actor_.find(oid);
-    if (oit == actor_.end()) continue;
-    Actor& oactor = oit->second;
-    func(actor, oactor, p);
-  }
 }
