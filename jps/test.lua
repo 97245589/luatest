@@ -53,7 +53,6 @@ local test = function()
     print(core:dumpcache(1, 0))
     formatpath(core:find(0, 0, 5, 0))
 end
-test()
 
 local test = function()
     local core = ljps.create(1000, 1000)
@@ -73,3 +72,4 @@ local test = function()
     end
     print(os.time() - t)
 end
+test()

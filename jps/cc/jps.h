@@ -1,7 +1,6 @@
 #ifndef __JPS_H__
 #define __JPS_H__
 
-#include <array>
 #include <cmath>
 #include <cstdint>
 #include <ext/pb_ds/assoc_container.hpp>
@@ -10,7 +9,6 @@
 #include <string>
 #include <vector>
 
-using std::array;
 using std::function;
 using std::multiset;
 using std::string;
@@ -33,10 +31,13 @@ struct Jps {
     int16_t dx_, dy_;
     bool operator<(const State& rhs) const { return weigh_ < rhs.weigh_; }
   };
+  struct Pcache {
+    int16_t u_, d_, l_, r_;
+  };
 
   int16_t len_, wid_;
   vector<vector<bool>> block_;
-  vector<vector<array<int16_t, 4>>> jpcache_;
+  vector<vector<Pcache>> jpcache_;
 
   bool quick_;
   Pos start_, end_;
@@ -66,8 +67,21 @@ struct Jps {
 
   void jpcache();
   void linecache(Pos p, Pos d);
-  void setcache(Pos p, Pos d, int16_t v);
-  int16_t getcache(Pos p, Pos d);
+  void setcache(Pos p, Pos d, int16_t v) {
+    auto& pcache = jpcache_[p.x_][p.y_];
+    if (d.x_ == 0 && d.y_ == 1) pcache.u_ = v;
+    if (d.x_ == 0 && d.y_ == -1) pcache.d_ = v;
+    if (d.x_ == -1 && d.y_ == 0) pcache.l_ = v;
+    if (d.x_ == 1 && d.y_ == 0) pcache.r_ = v;
+  }
+  int16_t getcache(Pos p, Pos d) {
+    auto& pcache = jpcache_[p.x_][p.y_];
+    if (d.x_ == 0 && d.y_ == 1) return pcache.u_;
+    if (d.x_ == 0 && d.y_ == -1) return pcache.d_;
+    if (d.x_ == -1 && d.y_ == 0) return pcache.l_;
+    if (d.x_ == 1 && d.y_ == 0) return pcache.r_;
+    return 0;
+  }
   string dumpcache(Pos d);
 
   void genret();

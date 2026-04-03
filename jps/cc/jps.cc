@@ -8,8 +8,6 @@ using namespace std;
 using Pos = Jps::Pos;
 static constexpr int16_t LWEI = 100;
 static constexpr int16_t HWEI = 141;
-static const unordered_map<Pos, int8_t, Pos> DIRIDX = {
-    {{0, 1}, 0}, {{0, -1}, 1}, {{1, 0}, 2}, {{-1, 0}, 3}};
 
 Jps::Jps(int16_t len, int16_t wid) : len_(len), wid_(wid) {
   block_ = vector<vector<bool>>(len, vector<bool>(wid, false));
@@ -22,16 +20,6 @@ void Jps::reset() {
   openlist_.clear();
 }
 
-int16_t Jps::getcache(Pos p, Pos d) {
-  auto it = DIRIDX.find(d);
-  if (it == DIRIDX.end()) return 0;
-  return jpcache_[p.x_][p.y_][it->second];
-}
-void Jps::setcache(Pos p, Pos d, int16_t v) {
-  auto it = DIRIDX.find(d);
-  if (it == DIRIDX.end()) return;
-  jpcache_[p.x_][p.y_][it->second] = v;
-}
 void Jps::linecache(Pos p, Pos d) {
   Pos q = p;
   while (inarea(q) && isblock(q)) {
@@ -64,8 +52,7 @@ void Jps::linecache(Pos p, Pos d) {
   }
 }
 void Jps::jpcache() {
-  jpcache_ =
-      vector<vector<array<int16_t, 4>>>(len_, vector<array<int16_t, 4>>(wid_));
+  jpcache_ = vector<vector<Pcache>>(len_, vector<Pcache>(wid_));
 
   for (int16_t i = 0; i < len_; ++i) {
     Pos p{.x_ = i, .y_ = 0};
