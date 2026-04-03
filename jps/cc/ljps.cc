@@ -68,7 +68,7 @@ int Ljps::setblock(lua_State* L) {
   Jps** pp = (Jps**)luaL_checkudata(L, 1, META);
   int16_t x = luaL_checkinteger(L, 2);
   int16_t y = luaL_checkinteger(L, 3);
-  int8_t v = luaL_checkinteger(L, 4);
+  bool v = lua_toboolean(L, 4);
   Jps& jps = **pp;
   jps.setblock(x, y, v);
   return 0;

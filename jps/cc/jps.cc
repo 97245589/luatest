@@ -8,20 +8,18 @@ using namespace std;
 using Pos = Jps::Pos;
 static constexpr int16_t LWEI = 100;
 static constexpr int16_t HWEI = 141;
-static const vector<Pos> DIR = {{0, 1}, {0, -1}, {1, 0},  {-1, 0},
-                                {1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
 static const unordered_map<Pos, int8_t, Pos> DIRIDX = {
     {{0, 1}, 0}, {{0, -1}, 1}, {{1, 0}, 2}, {{-1, 0}, 3}};
 
 Jps::Jps(int16_t len, int16_t wid) : len_(len), wid_(wid) {
-  block_ = vector<vector<int8_t>>(len, vector<int8_t>(wid, 0));
+  block_ = vector<vector<bool>>(len, vector<bool>(wid, false));
 }
 
 void Jps::reset() {
   ret_.clear();
   pre_.clear();
   closelist_.clear();
-  openlist_ = {};
+  openlist_.clear();
 }
 
 int16_t Jps::getcache(Pos p, Pos d) {
@@ -147,10 +145,10 @@ bool Jps::addjp(State s, Pos pre) {
       s.weigh_ = cost(ps, end_) + s.cost_;
     }
   }
-  cout << "addjp:" << s.x_ << "," << s.y_ << " ";
-  cout << s.dx_ << "," << s.dy_ << " " << s.cost_ << " ";
-  cout << pre.x_ << "," << pre.y_ << endl;
-  openlist_.push(s);
+  // cout << "addjp:" << s.x_ << "," << s.y_ << " ";
+  // cout << s.dx_ << "," << s.dy_ << " " << s.cost_ << " ";
+  // cout << pre.x_ << "," << pre.y_ << endl;
+  openlist_.insert(s);
   pre_[ps] = pre;
   return true;
 }
@@ -199,8 +197,8 @@ bool Jps::step(State st, Pos d) {
   st.dy_ = d.y_;
   Pos pstart{st.x_, st.y_};
   State s = st;
-  cout << "step: " << st.x_ << "," << st.y_;
-  cout << " " << d.x_ << " " << d.y_ << endl;
+  // cout << "step: " << st.x_ << "," << st.y_;
+  // cout << " " << d.x_ << " " << d.y_ << endl;
 
   while (true) {
     if (d.x_ == 0 || d.y_ == 0) {
@@ -238,7 +236,7 @@ bool Jps::step(State st, Pos d) {
       s.x_ += d.x_;
       s.y_ += d.y_;
       s.cost_ += HWEI;
-      cout << "di: " << s.x_ << "," << s.y_ << endl;
+      // cout << "di: " << s.x_ << "," << s.y_ << endl;
       ps = {s.x_, s.y_};
       if (ps == end_) {
         addjp(s, pstart);
@@ -252,6 +250,7 @@ bool Jps::step(State st, Pos d) {
         if (pre_.find(ps) == pre_.end()) pre_[ps] = pstart;
         s.x_ += d.x_;
         s.y_ += d.y_;
+        if (isblock({s.x_, s.y_})) return true;
         s.cost_ += HWEI;
         addjp(s, pstart);
         return true;
@@ -264,11 +263,12 @@ void Jps::find() {
   if (isblock(start_) || isblock(end_)) return;
   if (start_ == end_) return;
   State sstate{start_.x_, start_.y_, 0, cost(start_, end_), 0, 0};
-  openlist_.push(sstate);
+  openlist_.insert(sstate);
 
   while (!openlist_.empty()) {
-    State st = openlist_.top();
-    openlist_.pop();
+    auto oit = openlist_.begin();
+    State st = *oit;
+    openlist_.erase(oit);
     Pos pt{.x_ = st.x_, .y_ = st.y_};
     if (closelist_.find(pt) != closelist_.end()) continue;
     closelist_.insert(pt);
@@ -281,13 +281,12 @@ void Jps::find() {
     int8_t dx = st.dx_;
     int8_t dy = st.dy_;
     vector<Pos> dirs;
-    dirs.reserve(8);
     if (dx == 0 && dy == 0) {
-      dirs = DIR;
+      dirs.push_back({0, 1});
+      dirs = {{0, 1}, {0, -1}, {1, 0},  {-1, 0},
+              {1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
     } else if (dx != 0 && dy != 0) {
-      dirs.push_back({dx, 0});
-      dirs.push_back({0, dy});
-      dirs.push_back({dx, dy});
+      dirs = {{dx, 0}, {0, dy}, {dx, dy}};
     } else {
       dirs.push_back({dx, dy});
     }

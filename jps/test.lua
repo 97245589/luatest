@@ -41,15 +41,35 @@ local test = function()
     end
     map = {
         { 0, 0, 0, 0, 0, 0 },
-        { 0, 0, 0, 0, 0, 0 },
-        { 0, 0, 0, 0, 0, 0 },
-        { 1, 1, 0, 1, 1, 0 },
+        { 0, 0, 1, 0, 0, 0 },
+        { 0, 0, 1, 0, 0, 0 },
+        { 1, 0, 1, 1, 1, 0 },
         { 0, 0, 0, 0, 1, 0 },
         { 0, 0, 0, 0, 1, 0 }
     }
     core = ljps.create(#map, #map[1])
     setblock()
     core:jpcache()
-    formatpath(core:find(0, 0, 0,5));
+    print(core:dumpcache(1, 0))
+    formatpath(core:find(0, 0, 5, 0))
 end
 test()
+
+local test = function()
+    local core = ljps.create(1000, 1000)
+    core:setblock(300, 300, 1)
+    core:jpcache()
+    print(dump(core:find(1, 1, 999, 999)))
+
+    local t = os.time()
+    for i = 1, 20 do
+        core:jpcache()
+    end
+    print(os.time() - t)
+
+    local t = os.time()
+    for i = 1, 10000 do
+        core:find(1, 1, 999, 999)
+    end
+    print(os.time() - t)
+end

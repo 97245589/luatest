@@ -31,11 +31,9 @@ local round = function()
         ::cont::
     end
     for idx, unit in ipairs(atkorder) do
-        local scfg = skillcfg[501]
-        local targs = scfg.targ(unit)
-        if not targs then
-            goto cont
-        end
+        local scfg = skillcfg[101]
+        local arr = scfg.targ
+        local targs = skill[arr[1]](unit, table.unpack(arr, 2, #arr))
         for _, targ in ipairs(targs) do
             scfg.action(unit, targ)
         end

@@ -9,23 +9,23 @@ local math = math
 
 local skillcfg = {
     [101] = {
-        targ = "enemy(src, 1)",
+        targ = { "enemy", 1 },
         action = "damage(targ, fattr(src,ATK)*2-fattr(targ,DEF), src)"
     },
     [201] = {
-        targ = "me(src)",
+        targ = { "me" },
         action = "buffattr(targ, src, 1, {[ATK+2]=1})"
     },
     [301] = {
-        targ = "enemy(src, 1)",
+        targ = { "enemy", 1 },
         action = "local v=fattr(src,ATK) buff_roundend(targ,src,1,function(targ) damage(targ,v) end)"
     },
     [401] = {
-        targ = "me(src)",
+        targ = { "me" },
         action = "buff_roundend(targ,src,1,function(targ) addhp(targ,200) end)"
     },
     [501] = {
-        targ = "me(src)",
+        targ = { "me" },
         action = "buffevent(targ,src,1,ESKILL,function(targ, skillid) addhp(targ,100) end)",
     }
 }
@@ -52,14 +52,11 @@ local loadcfg = function()
         }
     end
     ]]
-    local starg = "return function(src) return %s end"
     local saction = "return function(src, targ) %s end"
     for id, cfg in pairs(skillcfg) do
-        if not cfg.targ or not cfg.action then
+        if not cfg.action then
             goto cont
         end
-        local targf = string.format(starg, cfg.targ)
-        cfg.targ = load(targf, "skilltarg" .. id, "bt", M)()
         local actionf = string.format(saction, cfg.action)
         cfg.action = load(actionf, "skillaction" .. id, "bt", M)()
         ::cont::

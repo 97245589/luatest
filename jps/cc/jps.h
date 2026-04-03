@@ -4,21 +4,18 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <ext/pb_ds/assoc_container.hpp>
 #include <functional>
-#include <queue>
+#include <set>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 using std::array;
 using std::function;
-using std::priority_queue;
+using std::multiset;
 using std::string;
-using std::unordered_map;
-using std::unordered_set;
 using std::vector;
-
+#define hashtable __gnu_pbds::cc_hash_table
 struct Jps {
   struct Pos {
     int16_t x_, y_;
@@ -34,36 +31,34 @@ struct Jps {
     int16_t x_, y_;
     int32_t cost_, weigh_;
     int16_t dx_, dy_;
-    bool operator<(const State& rhs) const { return weigh_ > rhs.weigh_; }
+    bool operator<(const State& rhs) const { return weigh_ < rhs.weigh_; }
   };
 
   int16_t len_, wid_;
-  vector<vector<int8_t>> block_;
+  vector<vector<bool>> block_;
   vector<vector<array<int16_t, 4>>> jpcache_;
 
   bool quick_;
   Pos start_, end_;
   vector<Pos> ret_;
-  unordered_map<Pos, Pos, Pos> pre_;
-  priority_queue<State> openlist_;
-  unordered_set<Pos, Pos> closelist_;
+  hashtable<Pos, Pos, Pos> pre_;
+  multiset<State> openlist_;
+  hashtable<Pos, __gnu_pbds::null_type, Pos> closelist_;
 
   Jps(int16_t len, int16_t wid);
   bool inarea(Pos p) {
-    if (p.x_ < 0 || p.x_ > len_ - 1) return false;
-    if (p.y_ < 0 || p.y_ > wid_ - 1) return false;
-    return true;
+    return p.x_ >= 0 && p.x_ <= len_ - 1 && p.y_ >= 0 && p.y_ <= wid_ - 1;
   }
   bool isblock(Pos p) {
     if (!inarea(p)) return true;
-    return block_[p.x_][p.y_] != 0;
+    return block_[p.x_][p.y_] == true;
   }
   static int cost(Pos p1, Pos p2) {
     int16_t dx = p1.x_ - p2.x_;
     int16_t dy = p1.y_ - p2.y_;
     return sqrt(dx * dx + dy * dy) * 100;
   };
-  void setblock(int16_t x, int16_t y, int8_t v) {
+  void setblock(int16_t x, int16_t y, bool v) {
     if (!inarea({x, y})) return;
     block_[x][y] = v;
   }
