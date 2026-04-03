@@ -5,20 +5,7 @@
 using namespace std;
 
 World::World(int16_t len, int16_t wid) : len_(len), wid_(wid) {
-  block_ = vector<vector<int64_t>>(len, vector<int64_t>(wid, 0));
-}
-
-bool World::checkpos(Pos p) {
-  if (p.x_ < 0) return false;
-  if (p.x_ > len_ - 1) return false;
-  if (p.y_ < 0) return false;
-  if (p.y_ > wid_ - 1) return false;
-  return true;
-}
-
-bool World::isblock(Pos p) {
-  if (!checkpos(p)) return false;
-  return block_[p.x_][p.y_] != 0;
+  block_ = vector<vector<bool>>(len, vector<bool>(wid, false));
 }
 
 void World::correctpos(Pos& p) {
@@ -28,29 +15,45 @@ void World::correctpos(Pos& p) {
   if (p.y_ > wid_ - 1) p.y_ = wid_ - 1;
 }
 
-void World::traversal_area(Pos bl, Pos tr, function<void(Pos)> func) {
-  correctpos(bl);
-  correctpos(tr);
+bool World::haveblock(Pos bl, Pos tr) {
+  for (int16_t x = bl.x_; x <= tr.x_; ++x) {
+    for (int16_t y = bl.y_; y <= tr.y_; ++y) {
+      if (isblock({x, y})) return true;
+    }
+  }
+  return false;
+}
+
+void World::addentity(int64_t id, const Entity& entity) {
+  auto it = entity_.find(id);
+  if (it != entity_.end()) return;
+  Pos bl = entity.bl_;
+  Pos tr = entity.tr_;
+  if (haveblock(bl, tr)) return;
+  entity_.insert({id, entity});
   for (int16_t x = bl.x_; x <= tr.x_; ++x) {
     for (int16_t y = bl.y_; y <= tr.y_; ++y) {
       Pos p{x, y};
-      func(p);
+      pos_entity_[p] = id;
+      setblock(p, true);
     }
   }
 }
 
-bool World::areablock(Pos bl, Pos tr) {
-  if (isblock(bl)) return true;
-  if (isblock(tr)) return true;
-  bool b = false;
-  traversal_area(bl, tr, [&](Pos p) {
-    if (isblock(p)) b = true;
-  });
-  return b;
-}
-
-void World::setblock(Pos bl, Pos tr, int64_t v) {
-  traversal_area(bl, tr, [&](Pos p) { block_[p.x_][p.y_] = v; });
+void World::delentity(int64_t id) {
+  auto it = entity_.find(id);
+  if (it == entity_.end()) return;
+  Entity& entity = it->second;
+  Pos bl = entity.bl_;
+  Pos tr = entity.tr_;
+  for (int16_t x = bl.x_; x <= tr.x_; ++x) {
+    for (int16_t y = bl.y_; y <= tr.y_; ++y) {
+      Pos p{x, y};
+      pos_entity_.erase(p);
+      setblock(p, false);
+    }
+  }
+  entity_.erase(id);
 }
 
 void World::areaids(Pos bl, Pos tr, vector<int64_t>& ret) {
@@ -59,46 +62,45 @@ void World::areaids(Pos bl, Pos tr, vector<int64_t>& ret) {
   correctpos(tr);
   for (int16_t x = bl.x_; x <= tr.x_; ++x) {
     for (int16_t y = bl.y_; y <= tr.y_; ++y) {
-      int64_t id = block_[x][y];
-      if (id > 0) ret.push_back(id);
+      auto it = pos_entity_.find({x, y});
+      if (it == pos_entity_.end()) continue;
+      ret.push_back(it->second);
     }
   }
   sort(ret.begin(), ret.end());
   ret.erase(unique(ret.begin(), ret.end()), ret.end());
 }
 
+inline static bool inarea(Pos p, Pos bl, Pos tr) {
+  if (p.x_ < bl.x_) return false;
+  if (p.x_ > tr.x_) return false;
+  if (p.y_ < bl.y_) return false;
+  if (p.y_ > tr.y_) return false;
+  return true;
+}
+inline static float cross(Pos a, Pos b, Pos c) {
+  Pos vab;
+  vab.x_ = b.x_ - a.x_;
+  vab.y_ = b.y_ - a.y_;
+  Pos vac;
+  vac.x_ = c.x_ - a.x_;
+  vac.y_ = c.y_ - a.y_;
+  return vab.x_ * vac.y_ - vac.x_ * vab.y_;
+}
+inline static bool intersect(Pos a, Pos b, Pos c, Pos d) {
+  if (std::max(a.x_, b.x_) < std::min(c.x_, d.x_) ||
+      std::max(c.x_, d.x_) < std::min(a.x_, b.x_) ||
+      std::max(a.y_, b.y_) < std::min(c.y_, d.y_) ||
+      std::max(c.y_, d.y_) < std::min(a.y_, b.y_)) {
+    return false;
+  }
+  float c1 = cross(a, b, c);
+  float c2 = cross(a, b, d);
+  float c3 = cross(c, d, a);
+  float c4 = cross(c, d, b);
+  return (c1 * c2 <= 0) && (c3 * c4 <= 0);
+}
 bool World::inview(Pos n, Pos e, Pos bl, Pos tr) {
-  auto inarea = [](Pos p, Pos bl, Pos tr) {
-    if (p.x_ < bl.x_) return false;
-    if (p.x_ > tr.x_) return false;
-    if (p.y_ < bl.y_) return false;
-    if (p.y_ > tr.y_) return false;
-    return true;
-  };
-  auto cross = [](Pos a, Pos b, Pos c) {
-    Pos vab;
-    vab.x_ = b.x_ - a.x_;
-    vab.y_ = b.y_ - a.y_;
-    Pos vac;
-    vac.x_ = c.x_ - a.x_;
-    vac.y_ = c.y_ - a.y_;
-    float v = vab.x_ * vac.y_ - vac.x_ * vab.y_;
-    return v;
-  };
-  auto intersect = [=](Pos a, Pos b, Pos c, Pos d) {
-    if (std::max(a.x_, b.x_) < std::min(c.x_, d.x_) ||
-        std::max(c.x_, d.x_) < std::min(a.x_, b.x_) ||
-        std::max(a.y_, b.y_) < std::min(c.y_, d.y_) ||
-        std::max(c.y_, d.y_) < std::min(a.y_, b.y_)) {
-        return false;
-    }
-    float c1 = cross(a, b, c);
-    float c2 = cross(a, b, d);
-    float c3 = cross(c, d, a);
-    float c4 = cross(c, d, b);
-    return (c1 * c2 <= 0) && (c3 * c4 <= 0);
-  };
-
   if (inarea(n, bl, tr) || inarea(e, bl, tr)) return true;
   Pos p1{bl.x_, bl.y_};
   Pos p2{bl.x_, tr.y_};
@@ -119,7 +121,7 @@ void World::troop_view(
     dels.clear();
     Pos bl = view.bl_;
     Pos tr = view.tr_;
-    auto& btroop = view.troop_;
+    vector<int64_t>& btroop = view.troop_;
     vector<int64_t> ntroop;
     ntroop.reserve(32);
     for (auto& [id, troop] : troop_) {

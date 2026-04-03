@@ -5,6 +5,22 @@ extern "C" {
 
 static const char* META = "LWORLD";
 
+static int setentity(lua_State* L) {
+  World** pp = (World**)luaL_checkudata(L, 1, META);
+  World& world = **pp;
+  int64_t id = luaL_checkinteger(L, 2);
+  if (!lua_isinteger(L, 3)) {
+    world.delentity(id);
+    return 0;
+  }
+  int16_t blx = luaL_checkinteger(L, 3);
+  int16_t bly = luaL_checkinteger(L, 4);
+  int16_t trx = luaL_checkinteger(L, 5);
+  int16_t try_ = luaL_checkinteger(L, 6);
+  world.addentity(id, {{blx, bly}, {trx, try_}});
+  return 0;
+}
+
 static int haveblock(lua_State* L) {
   World** pp = (World**)luaL_checkudata(L, 1, META);
   int16_t blx = luaL_checkinteger(L, 2);
@@ -13,21 +29,18 @@ static int haveblock(lua_State* L) {
   int16_t try_ = luaL_checkinteger(L, 5);
 
   World& world = **pp;
-  bool r = world.areablock({blx, bly}, {trx, try_});
+  bool r = world.haveblock({blx, bly}, {trx, try_});
   lua_pushboolean(L, r);
   return 1;
 }
 
 static int setblock(lua_State* L) {
   World** pp = (World**)luaL_checkudata(L, 1, META);
-  int16_t blx = luaL_checkinteger(L, 2);
-  int16_t bly = luaL_checkinteger(L, 3);
-  int16_t trx = luaL_checkinteger(L, 4);
-  int16_t try_ = luaL_checkinteger(L, 5);
-  int64_t v = luaL_checkinteger(L, 6);
-
+  int16_t x = luaL_checkinteger(L, 2);
+  int16_t y = luaL_checkinteger(L, 3);
+  bool v = lua_toboolean(L, 4);
   World& world = **pp;
-  world.setblock({blx, bly}, {trx, try_}, v);
+  world.setblock({x, y}, v);
   return 0;
 }
 
@@ -134,13 +147,10 @@ static int create(lua_State* L) {
   World** pp = (World**)lua_newuserdata(L, sizeof(p));
   *pp = p;
   if (luaL_newmetatable(L, META)) {
-    luaL_Reg l[] = {{"haveblock", haveblock},
-                    {"setblock", setblock},
-                    {"areaids", areaids},
-                    {"settroop", settroop},
-                    {"setview", setview},
-                    {"troopview", troopview},
-                    {NULL, NULL}};
+    luaL_Reg l[] = {{"setentity", setentity}, {"haveblock", haveblock},
+                    {"setblock", setblock},   {"areaids", areaids},
+                    {"settroop", settroop},   {"setview", setview},
+                    {"troopview", troopview}, {NULL, NULL}};
     luaL_newlib(L, l);
     lua_setfield(L, -2, "__index");
     lua_pushcfunction(L, gc);
