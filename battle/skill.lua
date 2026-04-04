@@ -9,24 +9,21 @@ local math = math
 
 local skillcfg = {
     [101] = {
-        targ = { "enemy", 1 },
-        action = "damage(targ, fattr(src,ATK)*2-fattr(targ,DEF), src)"
+        targ = { "enemy" },
+        action = "damage(fattr(src,ATK)*2-fattr(targ,DEF))",
     },
     [201] = {
-        targ = { "me" },
-        action = "buffattr(targ, src, 1, {[ATK+2]=1})"
+        action = "addbuff(1) buffattr({[31]=10,[42]=10})"
     },
     [301] = {
-        targ = { "enemy", 1 },
-        action = "local v=fattr(src,ATK) buff_roundend(targ,src,1,function(targ) damage(targ,v) end)"
+        targ = { "enemy" },
+        action = "addbuff(5) buffattr({[51]=-5}) local v=fattr(src,ATK)*10 buff_roundend(function() damage(v) end)"
     },
     [401] = {
-        targ = { "me" },
-        action = "buff_roundend(targ,src,1,function(targ) addhp(targ,200) end)"
+        action = "local v=fattr(src,ATK) addbuff(10) buff_roundend(function() addhp(v) end)"
     },
     [501] = {
-        targ = { "me" },
-        action = "buffevent(targ,src,1,ESKILL,function(targ, skillid) addhp(targ,100) end)",
+        action = "addbuff(6) buffevent(ESKILL, function(skillid) addhp(100) end)",
     }
 }
 
@@ -41,48 +38,40 @@ local M = {
     EATK = 20,
     EATKED = 21,
     battle = nil,
-    skillcfg = skillcfg
+    targ = nil,
+    src = nil,
+    buff = nil
 }
-local loadcfg = function()
-    --[[
-    for i = 1, 10000 do
-        skillcfg[i] = {
-            targ = "me(src)",
-            action = "buffevent(targ,src,1,ESKILL,function(targ, skillid) addhp(targ,100) end)",
-        }
+for id, cfg in pairs(skillcfg) do
+    if cfg.action then
+        cfg.action = load(cfg.action, "skill" .. id, "bt", M)
     end
-    ]]
-    local saction = "return function(src, targ) %s end"
-    for id, cfg in pairs(skillcfg) do
-        if not cfg.action then
-            goto cont
-        end
-        local actionf = string.format(saction, cfg.action)
-        cfg.action = load(actionf, "skillaction" .. id, "bt", M)()
-        ::cont::
-    end
-    -- print("after loadskillcfg", collectgarbage("count"))
-end
-loadcfg()
-
-M.rand = function(...)
-    return math.random(...)
 end
 
-M.enemy = function(src, num)
-    local atkorder = M.battle.atkorder
-    local srct = src.spot // 100
-    local arr = {}
-    for _, unit in ipairs(atkorder) do
-        if srct ~= unit.spot // 100 then
-            table.insert(arr, unit)
-            return arr
+M.rand = math.random
+
+local targ_handle = {
+    enemy = function()
+        local battle = M.battle
+        local atkorder = battle.atkorder
+        local src = M.src
+        local scamp = src.spot // 100
+        for _, unit in ipairs(atkorder) do
+            if unit.spot // 100 ~= scamp then
+                return { unit }
+            end
         end
+    end,
+    allteam = function()
+    end,
+}
+M.get_targs = function(arr)
+    -- print("targs", dump(arr))
+    local func = targ_handle[arr[1]]
+    if not func then
+        return
     end
-    return arr
-end
-M.me = function(src)
-    return { src }
+    return func(table.unpack(arr, 2, #arr))
 end
 
 M.fattr = function(unit, k)
@@ -93,7 +82,9 @@ M.fattr = function(unit, k)
     return (base + add) * (1 + per)
 end
 
-M.addbuff = function(targ, bufftid, src)
+M.addbuff = function(bufftid)
+    local targ = M.targ
+    local src = M.src
     local tbuff = targ.buff
     tbuff.idx = tbuff.idx + 1
     local buffid = tbuff.idx
@@ -103,91 +94,134 @@ M.addbuff = function(targ, bufftid, src)
     local newbuff = {
         id = buffid,
         tid = bufftid,
-        endtm = 10,
+        endtm = 1,
+        -- src = src,
+        attrs = nil,
+        event = nil
     }
     local buffs = tbuff.buffs
     buffs[buffid] = newbuff
-    return newbuff
+    M.buff = newbuff
+    local timer = M.battle.timer
+    timer:add(targ.spot, buffid, newbuff.endtm)
 end
 
 M.removebuff = function(unit, buffid)
-    local ubuff = unit.buff
-    ubuff.roundend[buffid] = nil
-    local buffs = ubuff.buffs
+    unit.roundend[buffid] = nil
+    local buffs = unit.buff.buffs
     local buff = buffs[buffid]
     buffs[buffid] = nil
     if not buff then
         return
     end
+    -- print("remove buff===", unit.spot, buffid)
     if buff.attrs then
         local uattrs = unit.attrs
         for k, v in pairs(buff.attrs) do
             local uv = uattrs[k] or 0
-            uv = uv - v
-            uattrs[k] = uv
+            uattrs[k] = uv - v
         end
     end
     if buff.event then
-        local event = buff.event
-        local ubevent = ubuff.event
-        ubevent[event][buffid] = nil
-        if not next(ubevent[event]) then
-            ubevent[event] = nil
-        end
+        -- print("remove event buff", buff.event)
+        local eventfunc = unit.event
+        eventfunc[buff.event][buffid] = nil
     end
 end
 
-M.buffattr = function(targ, src, bufftid, attrs)
-    local buff = M.addbuff(targ, bufftid, src)
+M.buffattr = function(attrs)
+    local buff = M.buff
     if not buff then
         return
     end
+    local targ = M.targ
+    print("buffattrs", targ.spot, dump(attrs))
     buff.attrs = attrs
     local tattrs = targ.attrs
     for k, v in pairs(attrs) do
-        local tv = tattrs[k] or 0
-        tv = tv + v
-        tattrs[k] = tv
+        local nv = tattrs[k] or 0
+        tattrs[k] = nv + v
     end
-    -- print("buffattr", targ.spot, dump(targ))
 end
 
-M.buff_roundend = function(targ, src, bufftid, func)
-    local buff = M.addbuff(targ, bufftid, src)
+M.buff_roundend = function(func)
+    local buff = M.buff
     if not buff then
         return
     end
-    local tbuff = targ.buff
-    tbuff.roundend[buff.id] = func
+    local targ = M.targ
+    local roundend = targ.roundend
+    roundend[buff.id] = func
 end
 
-M.buffevent = function(targ, src, bufftid, event, func)
-    local buff = M.addbuff(targ, bufftid, src)
+M.roundend = function(unit)
+    M.targ = unit
+    for _, func in pairs(unit.roundend) do
+        func()
+    end
+    M.targ = nil
+end
+
+M.buffevent = function(event, func)
+    local buff = M.buff
     if not buff then
         return
     end
     buff.event = event
-    local tbuff = targ.buff
-    local tbevent = tbuff.event
-    tbevent[event] = tbevent[event] or {}
-    tbevent[event][buff.id] = func
+    local targ = M.targ
+    local eventfunc = targ.event
+    eventfunc[event] = eventfunc[event] or {}
+    eventfunc[event][buff.id] = func
 end
 
 M.triggerevent = function(unit, event, ...)
-    local ubevent = unit.buff.event
-    if ubevent[event] then
-        for buffid, cb in pairs(ubevent[event]) do
-            cb(unit, ...)
+    M.targ = unit
+    local eventfunc = unit.event
+    if eventfunc[event] then
+        for buffid, func in pairs(eventfunc[event]) do
+            func(...)
         end
     end
+    M.targ = nil
 end
 
-M.damage = function(targ, val, src)
-    print("damage", targ.spot, val)
+M.useskill = function(src, skillid)
+    local cfg = skillcfg[skillid]
+    if not cfg then
+        return
+    end
+    local targarr = cfg.targ
+    local action = cfg.action
+    if not action then
+        return
+    end
+    local targs
+    M.src = src
+    if not targarr then
+        targs = { src }
+    else
+        targs = M.get_targs(targarr)
+    end
+    if targs then
+        for _, targ in ipairs(targs) do
+            M.targ = targ
+            action()
+        end
+    end
+    M.triggerevent(src, M.ESKILL, skillid)
+    M.src = nil
+    M.targ = nil
+    M.buff = nil
 end
 
-M.addhp = function(targ, val, src)
-    print("addhp", targ.spot, val)
+M.damage = function(val)
+    local targ = M.targ
+    -- print("damage", targ.spot, val)
+end
+
+M.addhp = function(val)
+    local targ = M.targ
+    -- print("addhp", targ.spot, val)
 end
 
 return M

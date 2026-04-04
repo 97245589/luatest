@@ -24,3 +24,9 @@ local def = {
 }
 
 battle.start(atk, def)
+
+local t = os.time()
+for i = 1, 10000 do
+    battle.start(atk, def)
+end
+print(os.time() - t)

@@ -3,21 +3,11 @@ local table = table
 local pairs = pairs
 local ipairs = ipairs
 local skill = require "skill"
-local skillcfg = skill.skillcfg
+local stimer = require "stimer"
 
 local battle
 
 local M = {}
-
-local roundend = function()
-    local atkorder = battle.atkorder
-    for idx, unit in ipairs(atkorder) do
-        local ubuff = unit.buff
-        for buffid, cb in pairs(ubuff.roundend) do
-            cb(unit)
-        end
-    end
-end
 
 local round = function()
     battle.round = battle.round + 1
@@ -31,16 +21,19 @@ local round = function()
         ::cont::
     end
     for idx, unit in ipairs(atkorder) do
-        local scfg = skillcfg[101]
-        local arr = scfg.targ
-        local targs = skill[arr[1]](unit, table.unpack(arr, 2, #arr))
-        for _, targ in ipairs(targs) do
-            scfg.action(unit, targ)
-        end
-        skill.triggerevent(unit, skill.ESKILL, 201)
-        ::cont::
+        skill.useskill(unit, 101)
     end
-    roundend()
+    for idx, unit in ipairs(atkorder) do
+        skill.roundend(unit)
+    end
+    local expire = battle.timer:expire(battle.round)
+    if expire then
+        for i = 1, #expire, 2 do
+            local spot = expire[i]
+            local buffid = expire[i + 1]
+            skill.removebuff(battle.spots[spot], buffid)
+        end
+    end
     battle.atkorder = nil
 end
 
@@ -51,9 +44,9 @@ local init = function(atk, def)
         unit.buff = {
             idx = 0,
             buffs = {},
-            roundend = {},
-            event = {},
         }
+        unit.roundend = {}
+        unit.event = {}
     end
     battle = {}
     local spots = {}
@@ -65,17 +58,17 @@ local init = function(atk, def)
     for k, unit in pairs(def) do
         local spot = 200 + k
         initunit(unit, spot)
-
         spots[spot] = unit
     end
     battle.spots = spots
     battle.round = 0
     battle.report = {}
+    battle.timer = stimer.create()
     skill.battle = battle
 end
 M.start = function(atk, def)
     init(atk, def)
-    for i = 1, 1 do
+    for i = 1, 10 do
         round()
     end
     battle = nil
