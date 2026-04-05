@@ -1,6 +1,7 @@
 extern "C" {
 #include "lauxlib.h"
 }
+#include <iostream>
 #include <set>
 #include <sstream>
 #include <string>
@@ -69,8 +70,8 @@ static const char* META = "LTIMER";
 
 static int add(lua_State* L) {
   Timer** pp = (Timer**)luaL_checkudata(L, 1, META);
-  int16_t id = luaL_checkinteger(L, 2);
-  int16_t tm = luaL_checkinteger(L, 3);
+  int64_t id = luaL_checkinteger(L, 2);
+  int64_t tm = luaL_checkinteger(L, 3);
   size_t len;
   const char* p = luaL_checklstring(L, 4, &len);
 
@@ -81,7 +82,7 @@ static int add(lua_State* L) {
 
 static int delinfo(lua_State* L) {
   Timer** pp = (Timer**)luaL_checkudata(L, 1, META);
-  int16_t id = luaL_checkinteger(L, 2);
+  int64_t id = luaL_checkinteger(L, 2);
   size_t len;
   const char* p = luaL_checklstring(L, 3, &len);
 
@@ -92,7 +93,7 @@ static int delinfo(lua_State* L) {
 
 static int delid(lua_State* L) {
   Timer** pp = (Timer**)luaL_checkudata(L, 1, META);
-  int16_t id = luaL_checkinteger(L, 2);
+  int64_t id = luaL_checkinteger(L, 2);
   Timer& timer = **pp;
   timer.delid(id);
   return 0;
@@ -105,7 +106,7 @@ static int expire(lua_State* L) {
   lua_createtable(L, 32, 0);
   int c = 0;
   Timer& timer = **pp;
-  auto iter_ = timer.iter_;
+  auto& iter_ = timer.iter_;
   for (auto it = iter_.begin(); it != iter_.end();) {
     auto& ele = **it;
     if (tm >= ele.tm_) {
