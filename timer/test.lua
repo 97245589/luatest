@@ -10,12 +10,22 @@ local test = function()
     end
     core:add(1, 10, 1)
     print(core:dump())
-    core:delinfo(2, 2)
-    core:delinfo(1, 3)
+    core:del(2, 2)
+    core:del(1, 3)
     print(core:dump())
     core:delid(2)
     print(core:dump())
-    print(dump(core:expire(3)))
+    print(dump(core:expire(5)))
     print(core:dump())
+end
+
+local test = function()
+    local t = os.time()
+    for i = 1, 1000000 do
+        core:add(1, 1000000 - i, i)
+    end
+    core:delid(1)
+    print(core:dump())
+    print(os.time() - t)
 end
 test()
