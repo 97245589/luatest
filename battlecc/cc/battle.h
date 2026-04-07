@@ -6,22 +6,21 @@
 struct Actor {
   int8_t lo_;
   int16_t blo_;
-  uint16_t buffidx_;
   hashtable<int, float> attrs_;
-  hashtable<int, int> active_skills_;
-  hashtable<int, int> passive_skills_;
-  hashtable<int, Buff> buffs_;
-  float fattr(int k);
+
+  uint16_t idx_;
+  vector<Buff> buffs_;
+  hashtable<int, std::function<void()>> roundend_;
+  hashtable<int, hashtable<int, std::function<void()>>> eventfunc_;
 };
 
 struct Battle {
   int8_t round_;
-  Skill skill_;
   vector<Actor> atk_, def_;
-  vector<Actor*> atkorder_;
+  vector<Actor*> atk_order_;
+  Skill skill_;
 
-  Battle() : skill_(*this) {}
-  void roundend(Actor&);
+  Battle();
   void round();
   void start();
 };

@@ -1,6 +1,16 @@
 #include "battle.h"
-using namespace Skillfunc;
-static void s101(Actor& src, Actor& targ, Param p) {float v = fattr(src,ATK)*p[1]; buff_roundend(targ,src,1,p,[=](Actor& actor, Buff& buff){addhp(actor, v);});}
 void Skill::initfunc() {
-skillfunc_.insert({101, s101});
+  skillfunc_[100] = [=]() {
+    float v = fattr(src_, ATK) * p_[1] - fattr(targ_, DEF);
+    damage(v);
+  };
+  skillfunc_[200] = [=]() {
+    addbuff(1);
+    float v = targ_->blo_;
+    buff_roundend([=]() { addhp(v); });
+  };
+  skillfunc_[300] = [=]() {
+    addbuff(1);
+    buffattr({p_[1], p_[2]});
+  };
 }

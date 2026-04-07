@@ -1,104 +1,130 @@
 #include <iostream>
-using namespace std;
 
 #include "battle.h"
+using namespace std;
 
-Skill::Skill(Battle& b) : battle_(b) {
+Skill::Skill() {
   initfunc();
-  skillcfg_[101] = {
-      .targ_ = "me",
-      .params_ = {2},
-  };
-  targfunc_["enemy"] = [](Actor& src, Param p) {
-    vector<Actor*> ret;
-    auto& battle = p.skill_.battle_;
-    auto& atkorder = battle.atkorder_;
-    int camp = src.blo_ / 100;
-    for (Actor* pactor : atkorder) {
-      int pcamp = pactor->blo_ / 100;
-      if (camp != pcamp) {
-        ret.push_back(pactor);
+
+  targf_["me"] = [=]() { targs_.push_back(src_); };
+  targf_["enemy"] = [=]() {
+    auto atkorder = battle_->atk_order_;
+    int m = src_->blo_ / 100;
+    for (Actor* actor : atkorder) {
+      int om = actor->blo_ / 100;
+      if (m != om) {
+        targs_.push_back(actor);
         break;
       }
     }
-    return ret;
-  };
-
-  targfunc_["me"] = [](Actor& src, Param p) {
-    vector<Actor*> ret;
-    ret.push_back(&src);
-    return ret;
   };
 }
 
-void Skill::useskill(Actor& src, int skillid) {
-  auto cfg_it = skillcfg_.find(skillid);
-  if (cfg_it == skillcfg_.end()) return;
-  Skillcfg& cfg = cfg_it->second;
-  auto targit = targfunc_.find(cfg.targ_);
-  if (targit == targfunc_.end()) return;
-  int fid = skillid / 100 * 100 + 1;
-  auto funcit = skillfunc_.find(fid);
-  if (funcit == skillfunc_.end()) return;
-  Param pt(cfg.tparams_, *this);
-  vector<Actor*> ret = targit->second(src, pt);
-  for (Actor* ptarg : ret) {
-    Param ps(cfg.params_, *this);
-    funcit->second(src, *ptarg, ps);
+void Skill::useskill(int skillid) {
+  targ_ = nullptr;
+  p_.params_ = nullptr;
+  buff_ = nullptr;
+  targs_.clear();
+
+  if (!src_) return;
+  auto it = skillcfg_.find(skillid);
+  if (it == skillcfg_.end()) return;
+  auto& cfg = it->second;
+  auto targf = targf_[cfg.targ_];
+  if (!targf) return;
+
+  int actionid = skillid / 100;
+  actionid = actionid * 100;
+  auto ait = skillfunc_.find(actionid);
+  if (ait == skillfunc_.end()) return;
+  auto action = ait->second;
+  if (!action) return;
+
+  p_.params_ = &cfg.tparams_;
+  targf();
+  if (targs_.empty()) return;
+
+  p_.params_ = &cfg.aparams_;
+  for (Actor* targ : targs_) {
+    targ_ = targ;
+    action();
+  }
+  src_ = nullptr;
+}
+
+void Skill::roundend() {
+  auto atkorder = battle_->atk_order_;
+  int round = battle_->round_;
+  for (Actor* p : atkorder) {
+    Actor& actor = *p;
+    targ_ = src_ = p;
+    for (auto& [id, func] : actor.roundend_) {
+      func();
+    }
+    targ_ = src_ = nullptr;
+
+    auto& buffs = actor.buffs_;
+    for (auto it = buffs.begin(); it != buffs.end();) {
+      auto& buff = *it;
+      if (round >= buff.endtm_) {
+        removebuff(actor, buff);
+        it = buffs.erase(it);
+      } else {
+        ++it;
+      }
+    }
   }
 }
 
-namespace Skillfunc {
-
-float fattr(Actor& actor, int k) { return actor.fattr(k); }
-
-void damage(Actor& targ, float v, Actor& src, Param p) {
-  cout << "damage:" << targ.blo_ << " " << v << " ";
-  cout << src.blo_ << endl;
+void Skill::damage(float v) {
+  cout << targ_->blo_ << " " << v << " ";
+  cout << src_->blo_ << endl;
 }
 
-void addhp(Actor& targ, float v) {
-  cout << "addhp:" << targ.blo_ << " " << v << endl;
+void Skill::addhp(float v) {
+  cout << "addhp:" << targ_->blo_ << " " << v << endl;
 }
 
-Buff* addbuff(Actor& targ, Actor& src, int bufftid, Param p) {
-  Skill& skill = p.skill_;
-  int buffid = targ.buffidx_++;
-  Buff buff;
-  buff.tid_ = bufftid;
-  buff.end_ = 1;
-  auto& buffs = targ.buffs_;
-  buffs[buffid] = buff;
-  return &buffs[buffid];
+float Skill::fattr(Actor* actor, int k) {
+  if (!actor) return 0;
+  auto& attrs = actor->attrs_;
+  return attrs[k];
 }
 
-void removebuff(Actor& targ, int buffid, Buff& buff) {
+void Skill::removebuff(Actor& actor, Buff& buff) {
+  cout << "removebuff:" << actor.blo_ << " " << buff.tid_ << endl;
+  actor.roundend_.erase(buff.id_);
   for (auto [k, v] : buff.attrs_) {
-    targ.attrs_[k] -= v;
+    actor.attrs_[k] -= v;
   }
-  auto& buffs = targ.buffs_;
-  buffs.erase(buffid);
 }
 
-void buffattr(Actor& targ, Actor& src, int bufftid, Param p) {
-  Buff* pbuff = addbuff(targ, src, bufftid, p);
-  if (!pbuff) return;
-  Buff& buff = *pbuff;
-  vector<float>& params = p.params_;
-  for (int i = 0; i < params.size() - 1; i += 2) {
-    int k = params[i];
-    float v = params[i + 1];
+void Skill::addbuff(int tid) {
+  auto& targ = *targ_;
+  auto& buffs = targ.buffs_;
+
+  int id = ++targ.idx_;
+  Buff buff{.id_ = id, .tid_ = tid, .endtm_ = 1};
+  buffs.push_back(buff);
+  buff_ = &buffs.back();
+}
+
+void Skill::buffattr(const vector<float>& arr) {
+  if (!buff_) return;
+  auto& targ = *targ_;
+  auto& buff = *buff_;
+
+  for (int i = 0; i < arr.size() - 1; i += 2) {
+    int k = arr[i];
+    float v = arr[i + 1];
     buff.attrs_[k] = v;
     targ.attrs_[k] += v;
   }
 }
 
-void buff_roundend(Actor& targ, Actor& src, int bufftid, Param p,
-                   Roundend_func func) {
-  Buff* pbuff = addbuff(targ, src, bufftid, p);
-  if (!pbuff) return;
-  Buff& buff = *pbuff;
-  buff.roundend_ = func;
+void Skill::buff_roundend(function<void()> func) {
+  if (!buff_) return;
+  auto& targ = *targ_;
+  auto& buff = *buff_;
+  targ.roundend_[buff.id_] = func;
 }
-
-}  // namespace Skillfunc

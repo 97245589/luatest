@@ -2,18 +2,23 @@ extern "C" {
 #include "lauxlib.h"
 }
 #include "battle.h"
+
 static const char* META = "LBATTLE";
 
 static int setinfo(lua_State* L) {
   Battle** pp = (Battle**)luaL_checkudata(L, 1, META);
   Battle& battle = **pp;
-
-  Actor actor{.lo_ = 1};
-  auto& attrs = actor.attrs_;
-  attrs[ATK] = 20;
-  attrs[DEF] = 10;
   auto& atk = battle.atk_;
   auto& def = battle.def_;
+  atk.clear();
+  def.clear();
+  atk.reserve(3);
+  def.reserve(3);
+  Actor actor;
+  auto& attrs = actor.attrs_;
+  attrs[HP] = 100;
+  attrs[ATK] = 20;
+  attrs[DEF] = 10;
   actor.lo_ = 2;
   atk.push_back(actor);
   def.push_back(actor);
@@ -30,6 +35,16 @@ static int start(lua_State* L) {
   return 0;
 }
 
+static int skillcfg(lua_State* L) {
+  Battle** pp = (Battle**)luaL_checkudata(L, 1, META);
+  Battle& battle = **pp;
+  auto& skillcfg = battle.skill_.skillcfg_;
+  skillcfg[100] = {.targ_ = "enemy", .aparams_ = {2}};
+  skillcfg[200] = {.targ_ = "me", .aparams_ = {2}};
+  skillcfg[300] = {.targ_ = "me", .aparams_ = {ATK, 10}};
+  return 0;
+}
+
 static int gc(lua_State* L) {
   Battle** pp = (Battle**)luaL_checkudata(L, 1, META);
   delete *pp;
@@ -41,7 +56,10 @@ static int create(lua_State* L) {
   Battle** pp = (Battle**)lua_newuserdata(L, sizeof(p));
   *pp = p;
   if (luaL_newmetatable(L, META)) {
-    luaL_Reg l[] = {{"setinfo", setinfo}, {"start", start}, {NULL, NULL}};
+    luaL_Reg l[] = {{"setinfo", setinfo},
+                    {"start", start},
+                    {"skillcfg", skillcfg},
+                    {NULL, NULL}};
     luaL_newlib(L, l);
     lua_setfield(L, -2, "__index");
     lua_pushcfunction(L, gc);

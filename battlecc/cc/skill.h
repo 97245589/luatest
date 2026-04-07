@@ -1,7 +1,6 @@
 #ifndef __SKILL_H__
 #define __SKILL_H__
 
-#include <cmath>
 #include <cstdint>
 #include <ext/pb_ds/assoc_container.hpp>
 #include <functional>
@@ -10,66 +9,74 @@
 using std::function;
 using std::string;
 using std::vector;
+
 #define hashtable __gnu_pbds::cc_hash_table
 
-enum { HP = 10, ATK = 20, DEF = 30 };
+enum {
+  HP = 10,
+  ATK = 20,
+  DEF = 30,
 
-struct Skill;
-struct Buff;
+  ESKILL = 1,
+  EATk,
+  EATKED
+};
+
 struct Battle;
 struct Actor;
 
+struct Skillcfg {
+  string targ_;
+  vector<float> tparams_;
+  vector<float> aparams_;
+};
+
+struct Buffcfg {};
+
 struct Param {
-  vector<float>& params_;
-  Skill& skill_;
-  Param(vector<float>& p, Skill& s) : params_(p), skill_(s) {}
-  float operator[](int idx) {
+  vector<float>* params_;
+  float operator[](size_t idx) {
+    if (!params_) return 0;
+    auto& p = *params_;
     --idx;
-    if (idx < 0 || idx >= params_.size()) return 0;
-    return params_[idx];
+    if (idx < 0 || idx >= p.size()) return 0;
+    return p[idx];
   }
 };
 
-using Roundend_func = function<void(Actor&, Buff&)>;
 struct Buff {
+  int id_;
   int tid_;
-  int end_;
+  int64_t endtm_;
+  int event_;
   hashtable<int, float> attrs_;
-  Roundend_func roundend_;
 };
 
 struct Skill {
-  struct Skillcfg {
-    string targ_;
-    vector<float> tparams_;
-    vector<float> params_;
-  };
-  struct Buffcfg {
-    uint16_t max_stack_;
-  };
-  using Skillfunc = void (*)(Actor&, Actor&, Param);
-  using Targfunc = vector<Actor*> (*)(Actor&, Param);
+  Battle* battle_;
+  Actor* src_;
+  Actor* targ_;
+  Buff* buff_;
+  Param p_;
+  vector<Actor*> targs_;
+
+  hashtable<int, function<void()>> skillfunc_;
+  hashtable<string, function<void()>> targf_;
   hashtable<int, Skillcfg> skillcfg_;
-  hashtable<int, Skillfunc> skillfunc_;
-  hashtable<string, Targfunc> targfunc_;
   hashtable<int, Buffcfg> buffcfg_;
-  Battle& battle_;
 
-  Skill(Battle& b);
+  Skill();
   void initfunc();
-  void useskill(Actor& src, int skillid);
+  void useskill(int skillid);
+  void roundend();
+
+  void damage(float v);
+  void addhp(float v);
+  float fattr(Actor* actor, int k);
+  void removebuff(Actor& actor, Buff& buff);
+  void addbuff(int tid);
+  void buffattr(const vector<float>&);
+  void buff_roundend(function<void()>);
 };
-
-namespace Skillfunc {
-float fattr(Actor& actor, int k);
-void damage(Actor& targ, float v, Actor& src, Param p);
-void addhp(Actor& targ, float v);
-
-Buff* addbuff(Actor& targ, Actor& src, int bufftid, Param p);
-void removebuff(Actor& targ, int buffid, Buff& buff);
-void buffattr(Actor& targ, Actor& src, int bufftid, Param p);
-void buff_roundend(Actor& targ, Actor& src, int bufftid, Param p,
-                   Roundend_func func);
-};  // namespace Skillfunc
 
 #endif
