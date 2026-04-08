@@ -21,7 +21,7 @@ local round = function()
         ::cont::
     end
     for idx, unit in ipairs(atkorder) do
-        skill.useskill(unit, 101)
+        skill.useskill(unit, 501)
     end
     for idx, unit in ipairs(atkorder) do
         skill.roundend(unit)
@@ -68,7 +68,7 @@ local init = function(atk, def)
 end
 M.start = function(atk, def)
     init(atk, def)
-    for i = 1, 10 do
+    for i = 1, 1 do
         round()
     end
     battle = nil

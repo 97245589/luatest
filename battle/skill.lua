@@ -13,17 +13,17 @@ local skillcfg = {
         action = "damage(fattr(src,ATK)*2-fattr(targ,DEF))",
     },
     [201] = {
-        action = "addbuff(1) buffattr({[31]=10,[42]=10})"
+        action = "buffattr(1, {[31]=10,[42]=10})"
     },
     [301] = {
         targ = { "enemy" },
-        action = "addbuff(5) buffattr({[51]=-5}) local v=fattr(src,ATK)*10 buff_roundend(function() damage(v) end)"
+        action = "buffattr(10, {[51]=-5}) local v=fattr(src,ATK)*10 buff_roundend(20, function() damage(v) end)"
     },
     [401] = {
-        action = "local v=fattr(src,ATK) addbuff(10) buff_roundend(function() addhp(v) end)"
+        action = "local v=fattr(src,ATK) buff_roundend(10, function() addhp(v) end)"
     },
     [501] = {
-        action = "addbuff(6) buffevent(ESKILL, function(skillid) addhp(100) end)",
+        action = "buffevent(10, ESKILL, function(skillid) addhp(skillid) end)",
     }
 }
 
@@ -40,7 +40,6 @@ local M = {
     battle = nil,
     targ = nil,
     src = nil,
-    buff = nil
 }
 for id, cfg in pairs(skillcfg) do
     if cfg.action then
@@ -82,30 +81,6 @@ M.fattr = function(unit, k)
     return (base + add) * (1 + per)
 end
 
-M.addbuff = function(bufftid)
-    local targ = M.targ
-    local src = M.src
-    local tbuff = targ.buff
-    tbuff.idx = tbuff.idx + 1
-    local buffid = tbuff.idx
-    if tbuff.idx >= 20000 then
-        tbuff.idx = 0
-    end
-    local newbuff = {
-        id = buffid,
-        tid = bufftid,
-        endtm = 1,
-        -- src = src,
-        attrs = nil,
-        event = nil
-    }
-    local buffs = tbuff.buffs
-    buffs[buffid] = newbuff
-    M.buff = newbuff
-    local timer = M.battle.timer
-    timer:add(targ.spot, buffid, newbuff.endtm)
-end
-
 M.removebuff = function(unit, buffid)
     unit.roundend[buffid] = nil
     local buffs = unit.buff.buffs
@@ -114,7 +89,7 @@ M.removebuff = function(unit, buffid)
     if not buff then
         return
     end
-    -- print("remove buff===", unit.spot, buffid)
+    print("remove buff===", unit.spot, buffid)
     if buff.attrs then
         local uattrs = unit.attrs
         for k, v in pairs(buff.attrs) do
@@ -129,8 +104,29 @@ M.removebuff = function(unit, buffid)
     end
 end
 
-M.buffattr = function(attrs)
-    local buff = M.buff
+M.initbuff = function(tid)
+    local targ = M.targ
+    local tbuff = targ.buff
+    local id = tbuff.idx + 1
+    if id >= 0xffff then
+        id = 1
+    end
+    tbuff.idx = id
+    local buff = {
+        id = id,
+        tid = tid,
+        endtm = 1,
+        event = nil,
+        attrs = nil,
+    }
+    tbuff.buffs[id] = buff
+    local timer = M.battle.timer
+    timer:add(targ.spot, id, buff.endtm)
+    return buff
+end
+
+M.buffattr = function(tid, attrs)
+    local buff = M.initbuff(tid)
     if not buff then
         return
     end
@@ -144,8 +140,8 @@ M.buffattr = function(attrs)
     end
 end
 
-M.buff_roundend = function(func)
-    local buff = M.buff
+M.buff_roundend = function(tid, func)
+    local buff = M.initbuff(tid)
     if not buff then
         return
     end
@@ -156,14 +152,16 @@ end
 
 M.roundend = function(unit)
     M.targ = unit
+    M.src = unit
     for _, func in pairs(unit.roundend) do
         func()
     end
     M.targ = nil
+    M.src = nil
 end
 
-M.buffevent = function(event, func)
-    local buff = M.buff
+M.buffevent = function(tid, event, func)
+    local buff = M.initbuff(tid)
     if not buff then
         return
     end
@@ -211,17 +209,16 @@ M.useskill = function(src, skillid)
     M.triggerevent(src, M.ESKILL, skillid)
     M.src = nil
     M.targ = nil
-    M.buff = nil
 end
 
 M.damage = function(val)
     local targ = M.targ
-    -- print("damage", targ.spot, val)
+    print("damage", targ.spot, val)
 end
 
 M.addhp = function(val)
     local targ = M.targ
-    -- print("addhp", targ.spot, val)
+    print("addhp", targ.spot, val)
 end
 
 return M
