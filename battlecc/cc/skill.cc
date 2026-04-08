@@ -23,7 +23,6 @@ Skill::Skill() {
 void Skill::useskill(int skillid) {
   targ_ = nullptr;
   p_.params_ = nullptr;
-  buff_ = nullptr;
   targs_.clear();
 
   if (!src_) return;
@@ -55,6 +54,7 @@ void Skill::useskill(int skillid) {
 void Skill::roundend() {
   auto atkorder = battle_->atk_order_;
   int round = battle_->round_;
+
   for (Actor* p : atkorder) {
     Actor& actor = *p;
     targ_ = src_ = p;
@@ -65,12 +65,11 @@ void Skill::roundend() {
 
     auto& buffs = actor.buffs_;
     for (auto it = buffs.begin(); it != buffs.end();) {
-      auto& buff = *it;
-      if (round >= buff.endtm_) {
-        removebuff(actor, buff);
+      if (round >= it->endtm_) {
+        removebuff(actor, *it);
         it = buffs.erase(it);
       } else {
-        ++it;
+        break;
       }
     }
   }
@@ -91,40 +90,62 @@ float Skill::fattr(Actor* actor, int k) {
   return attrs[k];
 }
 
-void Skill::removebuff(Actor& actor, Buff& buff) {
-  cout << "removebuff:" << actor.blo_ << " " << buff.tid_ << endl;
+void Skill::removebuff(Actor& actor, const Buff& buff) {
+  // cout << "removebuff:" << actor.blo_ << " " << buff.tid_ << endl;
   actor.roundend_.erase(buff.id_);
   for (auto [k, v] : buff.attrs_) {
     actor.attrs_[k] -= v;
   }
+  int event = buff.event_;
+  if (event > 0) {
+    actor.eventfunc_[event].erase(buff.id_);
+  }
 }
 
-void Skill::addbuff(int tid) {
+bool Skill::initbuff(int tid, Buff& buff) {
   auto& targ = *targ_;
-  auto& buffs = targ.buffs_;
-
-  int id = ++targ.idx_;
-  Buff buff{.id_ = id, .tid_ = tid, .endtm_ = 1};
-  buffs.push_back(buff);
-  buff_ = &buffs.back();
+  buff.id_ = ++targ.idx_;
+  buff.tid_ = tid;
+  buff.endtm_ = 1;
+  return true;
 }
 
-void Skill::buffattr(const vector<float>& arr) {
-  if (!buff_) return;
-  auto& targ = *targ_;
-  auto& buff = *buff_;
-
+void Skill::buffattr(int tid, vector<float>&& arr) {
+  Buff buff{};
+  bool ok = initbuff(tid, buff);
+  if (!ok) return;
   for (int i = 0; i < arr.size() - 1; i += 2) {
     int k = arr[i];
     float v = arr[i + 1];
     buff.attrs_[k] = v;
-    targ.attrs_[k] += v;
+    targ_->attrs_[k] += v;
   }
+  targ_->buffs_.insert(std::move(buff));
 }
 
-void Skill::buff_roundend(function<void()> func) {
-  if (!buff_) return;
-  auto& targ = *targ_;
-  auto& buff = *buff_;
-  targ.roundend_[buff.id_] = func;
+void Skill::buff_roundend(int tid, function<void()> func) {
+  Buff buff{};
+  bool ok = initbuff(tid, buff);
+  if (!ok) return;
+  targ_->roundend_[buff.id_] = func;
+  targ_->buffs_.insert(std::move(buff));
+}
+
+void Skill::buffevent(int tid, int event, function<void()> func) {
+  Buff buff{};
+  bool ok = initbuff(tid, buff);
+  if (!ok) return;
+  targ_->eventfunc_[event][buff.id_] = func;
+  buff.event_ = event;
+  targ_->buffs_.insert(std::move(buff));
+}
+
+void Skill::trigger(Actor* p, int event, Eventdata data) {
+  auto& funcs = p->eventfunc_[event];
+  e_ = data;
+  src_ = targ_ = p;
+  for (auto& [buffid, func] : funcs) {
+    func();
+  }
+  src_ = targ_ = nullptr;
 }

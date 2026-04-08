@@ -17,7 +17,7 @@ enum {
   ATK = 20,
   DEF = 30,
 
-  ESKILL = 1,
+  ESKILL = 10,
   EATk,
   EATKED
 };
@@ -47,18 +47,26 @@ struct Param {
 struct Buff {
   int id_;
   int tid_;
-  int64_t endtm_;
-  int event_;
+  int16_t event_;
+  int16_t endtm_;
   hashtable<int, float> attrs_;
+  bool operator<(const Buff& rhs) const { return endtm_ < rhs.endtm_; }
+};
+
+union Eventdata {
+  struct Eskill {
+    int skillid_;
+  };
+  Eskill eskill_;
 };
 
 struct Skill {
   Battle* battle_;
   Actor* src_;
   Actor* targ_;
-  Buff* buff_;
   Param p_;
   vector<Actor*> targs_;
+  Eventdata e_;
 
   hashtable<int, function<void()>> skillfunc_;
   hashtable<string, function<void()>> targf_;
@@ -68,15 +76,20 @@ struct Skill {
   Skill();
   void initfunc();
   void useskill(int skillid);
-  void roundend();
 
   void damage(float v);
   void addhp(float v);
   float fattr(Actor* actor, int k);
-  void removebuff(Actor& actor, Buff& buff);
-  void addbuff(int tid);
-  void buffattr(const vector<float>&);
-  void buff_roundend(function<void()>);
+  void removebuff(Actor& actor, const Buff& buff);
+
+  bool initbuff(int tid, Buff& buff);
+  void buffattr(int tid, vector<float>&&);
+
+  void buff_roundend(int tid, function<void()>);
+  void roundend();
+
+  void buffevent(int tid, int event, function<void()>);
+  void trigger(Actor* p, int event, Eventdata data);
 };
 
 #endif

@@ -1,7 +1,10 @@
 extern "C" {
 #include "lauxlib.h"
 }
+#include <iostream>
+
 #include "battle.h"
+using namespace std;
 
 static const char* META = "LBATTLE";
 
@@ -42,6 +45,7 @@ static int skillcfg(lua_State* L) {
   skillcfg[100] = {.targ_ = "enemy", .aparams_ = {2}};
   skillcfg[200] = {.targ_ = "me", .aparams_ = {2}};
   skillcfg[300] = {.targ_ = "me", .aparams_ = {ATK, 10}};
+  skillcfg[400] = {.targ_ = "me", .aparams_ = {10}};
   return 0;
 }
 

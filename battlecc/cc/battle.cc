@@ -13,7 +13,10 @@ void Battle::round() {
 
   for (Actor* pactor : atk_order_) {
     skill_.src_ = pactor;
-    skill_.useskill(200);
+    skill_.useskill(400);
+    Eventdata e;
+    e.eskill_.skillid_ = 200;
+    skill_.trigger(pactor, ESKILL, e);
   }
   skill_.roundend();
 }
