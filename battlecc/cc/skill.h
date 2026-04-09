@@ -35,7 +35,7 @@ struct Buffcfg {};
 
 struct Param {
   vector<float>* params_;
-  float operator[](size_t idx) {
+  float operator[](size_t idx) const {
     if (!params_) return 0;
     auto& p = *params_;
     --idx;
@@ -75,6 +75,7 @@ struct Skill {
 
   Skill();
   void initfunc();
+  void targfunc();
   void useskill(int skillid);
 
   void damage(float v);

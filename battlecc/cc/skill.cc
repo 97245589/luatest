@@ -4,8 +4,11 @@
 using namespace std;
 
 Skill::Skill() {
+  targfunc();
   initfunc();
+}
 
+void Skill::targfunc() {
   targf_["me"] = [=]() { targs_.push_back(src_); };
   targf_["enemy"] = [=]() {
     auto atkorder = battle_->atk_order_;

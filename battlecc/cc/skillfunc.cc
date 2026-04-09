@@ -17,4 +17,9 @@ void Skill::initfunc() {
     float v = p_[1];
     buffevent(10, ESKILL, [=]() { addhp(v); });
   };
+
+  skillfunc_[500] = [=]() {
+    auto p = p_;
+    buff_roundend(10, [=]() { float v = p[1]; });
+  };
 }
