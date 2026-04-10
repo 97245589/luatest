@@ -81,7 +81,7 @@ struct Skill {
   vector<Actor*> targs_;
   Eventdata e_;
   std::mt19937 rng_;
-  std::uniform_real_distribution<double> dist_;
+  std::uniform_real_distribution<float> dist_;
 
   hashtable<int, function<void()>> skillfunc_;
   hashtable<string, function<void()>> targf_;
