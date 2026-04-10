@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <ext/pb_ds/assoc_container.hpp>
 #include <functional>
+#include <random>
 #include <string>
 #include <vector>
 using std::function;
@@ -79,6 +80,8 @@ struct Skill {
   Param p_;
   vector<Actor*> targs_;
   Eventdata e_;
+  std::mt19937 rng_;
+  std::uniform_real_distribution<double> dist_;
 
   hashtable<int, function<void()>> skillfunc_;
   hashtable<string, function<void()>> targf_;
@@ -89,6 +92,8 @@ struct Skill {
   void initfunc();
   void targfunc();
   void useskill(int skillid);
+
+  bool rand(float v);
 
   void damage(float v);
   void addhp(float v);

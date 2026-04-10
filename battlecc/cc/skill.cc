@@ -3,7 +3,7 @@
 #include "battle.h"
 using namespace std;
 
-Skill::Skill() {
+Skill::Skill() : rng_(std::random_device{}()), dist_(0, 1) {
   targfunc();
   initfunc();
 }
@@ -77,6 +77,8 @@ void Skill::roundend() {
     }
   }
 }
+
+bool Skill::rand(float v) { return v >= dist_(rng_); }
 
 void Skill::damage(float v) {
   cout << targ_->blo_ << " " << v << " ";
