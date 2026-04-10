@@ -83,6 +83,7 @@ void Aoi::diff(int64_t aid, Pos bp, Pos np, vector<int64_t>& adds,
 }
 
 void Aoi::aoi_ids(int64_t id, vector<int64_t>& ret) {
+  ret.reserve(32);
   auto& actor_ = world_.actor_;
   auto it = actor_.find(id);
   if (it == actor_.end()) return;
