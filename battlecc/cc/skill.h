@@ -57,7 +57,19 @@ union Eventdata {
   struct Eskill {
     int skillid_;
   };
+  struct Eatk {
+    Actor* src_;
+    Actor* targ_;
+    float val_;
+  };
+  struct Eatked {
+    Actor* src_;
+    Actor* targ_;
+    float val_;
+  };
   Eskill eskill_;
+  Eatk eatk_;
+  Eatked eatked_;
 };
 
 struct Skill {

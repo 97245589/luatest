@@ -20,6 +20,11 @@ void Skill::initfunc() {
 
   skillfunc_[500] = [=]() {
     auto p = p_;
-    buff_roundend(10, [=]() { float v = p[1]; });
+    buffevent(10, EATKED, [=]() {
+      auto e = e_.eatked_;
+      targ_ = e.src_;
+      src_ = e.targ_;
+      damage(e.val_ * p[1]);
+    });
   };
 }
