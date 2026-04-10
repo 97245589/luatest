@@ -96,7 +96,7 @@ struct Skill {
   void removebuff(Actor& actor, const Buff& buff);
 
   bool initbuff(int tid, Buff& buff);
-  void buffattr(int tid, vector<float>&&);
+  void buffattr(int tid, const vector<float>&);
 
   void buff_roundend(int tid, function<void()>);
   void roundend();

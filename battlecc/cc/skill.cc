@@ -113,7 +113,7 @@ bool Skill::initbuff(int tid, Buff& buff) {
   return true;
 }
 
-void Skill::buffattr(int tid, vector<float>&& arr) {
+void Skill::buffattr(int tid, const vector<float>& arr) {
   Buff buff{};
   bool ok = initbuff(tid, buff);
   if (!ok) return;

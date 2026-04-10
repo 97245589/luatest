@@ -11,7 +11,7 @@ void Skill::initfunc() {
     buff_roundend(10, [=]() { addhp(v); });
   };
 
-  skillfunc_[300] = [=]() { buffattr(10, {p_[1], p_[2]}); };
+  skillfunc_[300] = [=]() { buffattr(10, *(p_.params_)); };
 
   skillfunc_[400] = [=]() {
     float v = p_[1];
