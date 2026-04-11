@@ -80,7 +80,7 @@ struct Skill {
   Param p_;
   vector<Actor*> targs_;
   Eventdata e_;
-  std::mt19937 rng_;
+  std::minstd_rand rng_;
   std::uniform_real_distribution<float> dist_;
 
   hashtable<int, function<void()>> skillfunc_;
