@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <vector>
 
 struct Msgpack {
   template <typename T>
@@ -17,11 +18,17 @@ struct Msgpack {
     return new_val;
   }
   struct Pack {
-    char buff_[1024 * 1024 * 2];
+    std::vector<char> buff_;
     int len_;
+    bool over_;
+
     void write(void* p, int len) {
-      if (len_ + len >= sizeof(buff_)) return;
-      memcpy(buff_ + len_, p, len);
+      if (over_) return;
+      if (len_ + len >= buff_.size()) {
+        over_ = true;
+        return;
+      };
+      memcpy(buff_.data() + len_, p, len);
       len_ += len;
     }
     void pack_nil();

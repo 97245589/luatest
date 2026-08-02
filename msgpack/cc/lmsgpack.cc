@@ -174,15 +174,23 @@ static int encode(lua_State* L) {
   Encode** pp = (Encode**)luaL_checkudata(L, 1, META);
   Encode& encode = **pp;
   auto& pack = encode.pack_;
+  pack.len_ = 0;
+  pack.over_ = false;
   encode.L = L;
   encode.dep_ = 0;
-  pack.len_ = 0;
   encode.encode(2);
-  if (pack.len_ > sizeof(pack.buff_) - 1024 * 100) {
-    return luaL_error(L, "msgpack buff err");
+  if (pack.over_) {
+    return luaL_error(L, "msgpack buff overflow");
   }
-  lua_pushlstring(L, pack.buff_, pack.len_);
+  lua_pushlstring(L, pack.buff_.data(), pack.len_);
   return 1;
+}
+static int resize(lua_State* L) {
+  Encode** pp = (Encode**)luaL_checkudata(L, 1, META);
+  int bufflen = luaL_checkinteger(L, 2);
+  Encode& encode = **pp;
+  encode.pack_.buff_.resize(bufflen);
+  return 0;
 }
 static int gc(lua_State* L) {
   Encode** pp = (Encode**)luaL_checkudata(L, 1, META);
@@ -190,11 +198,13 @@ static int gc(lua_State* L) {
   return 0;
 }
 static int create(lua_State* L) {
+  int bufflen = luaL_checkinteger(L, 1);
   Encode* p = new Encode();
+  p->pack_.buff_.resize(bufflen);
   Encode** pp = (Encode**)lua_newuserdata(L, sizeof(p));
   *pp = p;
   if (luaL_newmetatable(L, META)) {
-    luaL_Reg l[] = {{"encode", encode}, {NULL, NULL}};
+    luaL_Reg l[] = {{"encode", encode}, {"resize", resize}, {NULL, NULL}};
     luaL_newlib(L, l);
     lua_setfield(L, -2, "__index");
     lua_pushcfunction(L, gc);

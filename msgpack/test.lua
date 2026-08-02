@@ -5,29 +5,31 @@ require "util"
 local obj = {
     i = 100,
     si = -10,
-    -- d = 10.0,
+    d = 10.10,
+    sd = -10.10,
     str = "string",
     arr = { 10, 20, { [100] = 200, arr = { 100, 200 } } },
-    [100] = { id = 100, val = 200 }
+    map = { [100] = { id = 100, val = 200 } }
 }
 local test = function()
-    local bin = lmsgpack.encode(obj)
+    local enobj = lmsgpack.create(1024 * 1024)
+    local bin = enobj:encode(obj)
     print(#bin, #msgpack.encode(obj))
     print(dump(lmsgpack.decode(bin)))
-end
 
-local press = function()
-    local bin
-    local t = os.time()
-    for i = 1, 1000000 do
-        bin = lmsgpack.encode(obj)
-    end
-    print(os.time() - t)
+    local press = function()
+        local t = os.time()
+        for i = 1, 1000000 do
+            bin = enobj:encode(obj)
+        end
+        print(os.time() - t, #bin)
 
-    local t = os.time()
-    for i = 1, 1000000 do
-        lmsgpack.decode(bin)
+        local t = os.time()
+        for i = 1, 1000000 do
+            lmsgpack.decode(bin)
+        end
+        print(os.time() - t)
     end
-    print(os.time() - t)
+    press()
 end
-press()
+test()
