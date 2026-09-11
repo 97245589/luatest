@@ -10,12 +10,14 @@ end
 
 local day_start = function(ts)
     local tb = os.date("*t", ts)
-    tb.hour, tb.min, tb.sec = 0, 0, 0
+    tb.hour = 0
+    tb.min = 0
+    tb.sec = 0
     tb.isdst = nil
-    return os.time(tb), tb
+    return os.time(tb)
 end
 
-local week_start = function(ts, last_num)
+local week_start = function(ts)
     local tb = os.date("*t", ts)
     tb.hour = 0
     tb.min = 0
@@ -24,13 +26,9 @@ local week_start = function(ts, last_num)
     if 0 == wday then
         wday = 7
     end
-    tb.day = tb.day - (wday - 1) - 7 * (last_num or 0)
+    tb.day = tb.day - (wday - 1)
     tb.isdst = nil
     return os.time(tb), tb
-end
-
-local lastweek_start = function(ts)
-    return week_start(ts, 1)
 end
 
 local server_open_time = day_start()
@@ -60,14 +58,75 @@ local parse_date = function(info)
 end
 
 local parse_weekly = function(info)
-    local _, time_tb = add_duration(lastweek_start(), info.weekly)
-    time_tb.day = time_tb.day - 1
+    local _, time_tb = add_duration(week_start(), info.weekly)
 
     local nowts = os.time()
+    time_tb.day = time_tb.day - 1 - 7 * 2
     for i = 1, 3 do
-        if i ~= 1 then
-            time_tb.day = time_tb.day + 7
+        time_tb.day = time_tb.day + 7
+        local start_ts = os.time(time_tb)
+        local end_ts = add_duration(start_ts, info.duration)
+        if nowts < end_ts then
+            return start_ts, end_ts
         end
+    end
+end
+
+local parse_daily = function(info)
+    local time_tb = os.date("*t")
+    time_tb.isdst = nil
+    local info_daily = info.daily
+    time_tb.hour = info_daily.hour or 0
+    time_tb.min = info_daily.min or 0
+    time_tb.sec = info_daily.sec or 0
+
+    local nowts = os.time()
+    time_tb.day = time_tb.day - 2
+    for i = 1, 3 do
+        time_tb.day = time_tb.day + 1
+        local start_ts = os.time(time_tb)
+        local end_ts = add_duration(start_ts, info.duration)
+        if nowts < end_ts then
+            return start_ts, end_ts
+        end
+    end
+end
+
+local parse_monthly = function(info)
+    local time_tb = os.date("*t")
+    time_tb.isdst = nil
+    local info_monthly = info.monthly
+    time_tb.day = info_monthly.day or 1
+    time_tb.hour = info_monthly.hour or 0
+    time_tb.min = info_monthly.min or 0
+    time_tb.sec = info_monthly.sec or 0
+
+    local nowts = os.time()
+    time_tb.month = time_tb.month - 2
+    for i = 1, 3 do
+        time_tb.month = time_tb.month + 1
+        local start_ts = os.time(time_tb)
+        local end_ts = add_duration(start_ts, info.duration)
+        if nowts < end_ts then
+            return start_ts, end_ts
+        end
+    end
+end
+
+local parse_yearly = function(info)
+    local time_tb = os.date("*t")
+    time_tb.isdst = nil
+    local info_yearly = info.yearly
+    time_tb.month = info_yearly.month or 1
+    time_tb.day = info_yearly.day or 1
+    time_tb.hour = info_yearly.hour or 0
+    time_tb.min = info_yearly.min or 0
+    time_tb.sec = info_yearly.sec or 0
+
+    local nowts = os.time()
+    time_tb.year = time_tb.year - 2
+    for i = 1, 3 do
+        time_tb.year = time_tb.year + 1
         local start_ts = os.time(time_tb)
         local end_ts = add_duration(start_ts, info.duration)
         if nowts < end_ts then
@@ -77,6 +136,7 @@ local parse_weekly = function(info)
 end
 
 local parse_afteropen_period = function(info)
+    local start_ts = add_duration(server_open_time, info.afteropen_period)
     local end_ts = add_duration(start_ts, info.duration)
     if os.time() < end_ts then
         return start_ts, end_ts
@@ -101,6 +161,9 @@ end
 
 local switch = {
     date = parse_date,
+    daily = parse_daily,
+    monthly = parse_monthly,
+    yearly = parse_yearly,
     weekly = parse_weekly,
     afteropen_period = parse_afteropen_period,
     afteropen_week = parse_afteropen_week
