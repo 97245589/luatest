@@ -1,77 +1,57 @@
 require "util"
-
 local time = require "time"
-local printst = function(s, e)
-    if not s then
-        print(s, e)
-        return
-    end
-    print(time.format(s), time.format(e))
+local printt = time.printt
+
+time.set_open_time(os.time(
+    { year = 2026, month = 9, day = 8, hour = 0, min = 0, sec = 0 }
+))
+
+local afteropen_week = function()
+    local info
+    info = {
+        afteropen_week = { day = 1, hour = 10 }, nth_week = 2, duration = { day = 1 }
+    }
+    printt(time.parse(info))
+    info = {
+        { afteropen_week = { day = 1 }, duration = { day = 1 } },
+        { afteropen_week = { day = 5 }, duration = { day = 1 } }
+    }
+    printt(time.parse(info))
 end
 
-
-local testeveryweek = function()
-    local cfg = {
-        everyweek = { weekday = 1, hour = 5 }, duration = { day = 3 },
+local afteropen_period = function()
+    local info
+    info = {
+        afteropen_period = { day = 3 }, duration = { day = 1 }
     }
-    printst(time.startendtm(cfg))
-
-    local cfg = {
-        everyweek = { weekday = 1 }, duration = { day = 1 }
+    printt(time.parse(info))
+    info = {
+        { afteropen_period = {},          duration = { day = 1 } },
+        { afteropen_period = { day = 2 }, duration = { day = 1 } }
     }
-    printst(time.startendtm(cfg))
-
-    local cfg = {
-        { everyweek = { weekday = 1 }, duration = { day = 1 } },
-        { everyweek = { weekday = 7 }, duration = { day = 1 } }
-    }
-    printst(time.startendtm(cfg))
-end
-testeveryweek()
-
-local testweek = function()
-    time.set_startts(time.day_start())
-    local cfg = {
-        week = { startweek = 1, weekday = 6 }, duration = { day = 3 },
-    }
-    printst(time.startendtm(cfg))
-
-    local cfg = {
-        { week = { startweek = 1, weekday = 1 }, duration = { day = 3 } },
-        { week = { startweek = 1, weekday = 5 }, duration = { day = 3 } }
-    }
-    printst(time.startendtm(cfg))
+    printt(time.parse(info))
 end
 
-local testafter = function()
-    time.set_startts(time.day_start())
-    local cfg = {
-        afterstart = { day = 3, hour = 10 }, duration = { day = 3 }
+local weekly_test = function()
+    local info
+    info = { weekly = { day = 3, hour = 10 }, duration = { day = 1 } }
+    printt(time.parse(info))
+    info = {
+        { weekly = { day = 2 }, duration = { day = 1 } },
+        { weekly = { day = 7 }, duration = { day = 1 } },
     }
-    printst(time.startendtm(cfg))
-
-    time.set_startts(os.time({ year = 2026, month = 2, day = 15, hour = 0 }))
-    local cfg = {
-        { afterstart = {},          duration = { day = 2 } },
-        { afterstart = { day = 3 }, duration = { day = 2 } },
-    }
-    printst(time.startendtm(cfg))
+    printt(time.parse(info))
 end
 
-local testtime = function()
-    local cfg = {
-        time = { year = 2026, month = 2, day = 10 },
-        duration = { day = 10 },
+local date_test = function()
+    local info
+    info = {
+        date = { year = 2026, month = 9, day = 8 }, duration = { day = 2 }
     }
-    printst(time.startendtm(cfg))
-    local cfg = {
-        time = { year = 2026, month = 2, day = 15, hour = 10 },
-        duration = { day = 3 }
+    printt(time.parse(info))
+    info = {
+        { date = { year = 2026, month = 9, day = 8 },  duration = { day = 2 } },
+        { date = { year = 2026, month = 9, day = 15 }, duration = { day = 1 } }
     }
-    printst(time.startendtm(cfg))
-    local cfg = {
-        { time = { year = 2026, month = 2, day = 16 }, duration = { day = 2 } },
-        { time = { year = 2026, month = 2, day = 20 }, duration = { day = 2 } },
-    }
-    printst(time.startendtm(cfg))
+    printt(time.parse(info))
 end
