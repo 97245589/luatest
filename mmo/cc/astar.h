@@ -5,7 +5,7 @@
 using std::vector;
 #include "common.h"
 
-struct World;
+struct Map;
 struct Astar {
   struct State {
     int16_t x_, y_;
@@ -13,10 +13,10 @@ struct Astar {
     bool operator<(const State& rhs) const { return weigh_ < rhs.weigh_; }
   };
 
-  World& world_;
-  Astar(World& world) : world_(world) {}
+  Map& map_;
+  Astar(Map& m) : map_(m) {}
 
-  bool isblock(Pos p);
+  bool impassable(Pos p);
   void find(Pos s, Pos e, vector<Pos>& ret, bool quick);
 };
 

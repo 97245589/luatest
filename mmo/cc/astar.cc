@@ -2,7 +2,8 @@
 #include <set>
 using namespace std;
 
-#include "world.h"
+#include "astar.h"
+#include "map.h"
 
 static constexpr int LWEIGH = 100;
 static constexpr int HWEIGH = 141;
@@ -20,13 +21,14 @@ inline static int cost(Pos s, Pos e) {
   return 100 * sqrt(dx * dx + dy * dy);
 }
 
-bool Astar::isblock(Pos p) { return world_.isblock(p); }
+bool Astar::impassable(Pos p) { return map_.impassable(p); }
 
 void Astar::find(Pos s, Pos e, vector<Pos>& ret, bool quick) {
-  if (isblock(s) || isblock(e)) return;
+  ret.reserve(64);
+  if (impassable(s) || impassable(e)) return;
   if (s == e) return;
-  hashtable<Pos, __gnu_pbds::null_type, Pos> closelist;
-  hashtable<Pos, Pos, Pos> pres;
+  hash_table<Pos, __gnu_pbds::null_type, Pos> closelist;
+  hash_table<Pos, Pos, Pos> pres;
   multiset<State> openlist;
   openlist.insert({s.x_, s.y_, 0, cost(s, e)});
 
@@ -34,7 +36,7 @@ void Astar::find(Pos s, Pos e, vector<Pos>& ret, bool quick) {
     auto oit = openlist.begin();
     State s = *oit;
     openlist.erase(oit);
-    Pos p{.x_ = s.x_, .y_ = s.y_};
+    Pos p{s.x_, s.y_};
     if (p == e) {
       ret.push_back(p);
       while (pres.end() != pres.find(p)) {
@@ -68,7 +70,7 @@ void Astar::find(Pos s, Pos e, vector<Pos>& ret, bool quick) {
       s1.y_ = s.y_ + d.y_;
       s1.cost_ = s.cost_ + d.cost_;
       Pos p1{s1.x_, s1.y_};
-      if (isblock(p1)) continue;
+      if (impassable(p1)) continue;
       if (closelist.find(p1) != closelist.end()) continue;
       if (p1 == e) {
         s1.weigh_ = 0;
