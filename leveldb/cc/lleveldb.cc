@@ -5,6 +5,7 @@ extern "C" {
 }
 
 #include <functional>
+#include <iostream>
 #include <string>
 #include <vector>
 using namespace std;
@@ -12,7 +13,7 @@ using namespace std;
 #include "leveldb/db.h"
 #include "leveldb/write_batch.h"
 
-static const char SPLIT = 0xff;
+static constexpr char SPLIT = 0xff;
 struct Lleveldb {
   leveldb::DB* db_;
 };
@@ -28,17 +29,11 @@ static int compact(lua_State* L) {
 static void search_key(leveldb::DB* db, string& str,
                        function<void(string&, string&, string&)> func) {
   string start = str + SPLIT;
-  string end = start + char(0xff);
+  string end = start + SPLIT;
 
   leveldb::Iterator* it = db->NewIterator(leveldb::ReadOptions());
   for (it->Seek(start); it->Valid() && it->key().ToString() < end; it->Next()) {
     string k = it->key().ToString();
-    if (k.size() <= start.size()) {
-      continue;
-    }
-    if (k.substr(0, start.size()) != start) {
-      continue;
-    }
     string key = k.substr(start.size());
     string val = it->value().ToString();
     func(key, val, k);
@@ -135,16 +130,12 @@ static int hmset(lua_State* L) {
   Lleveldb* p = (Lleveldb*)lua_touserdata(L, 1);
   leveldb::DB* db = p->db_;
 
-  int pnum = lua_gettop(L);
-  if (pnum < 4 || pnum % 2 != 0) {
-    return luaL_error(L, "leveldb hmset len arr");
-  }
   size_t lk;
   const char* pk = luaL_checklstring(L, 2, &lk);
   string key(pk, lk);
 
   leveldb::WriteBatch batch;
-  for (int i = 3; i < pnum; i += 2) {
+  for (int i = 3; i < lua_gettop(L); i += 2) {
     size_t lhk;
     const char* phk = luaL_checklstring(L, i, &lhk);
     string hkey(phk, lhk);
@@ -182,15 +173,11 @@ static int hmget(lua_State* L) {
   Lleveldb* p = (Lleveldb*)lua_touserdata(L, 1);
   leveldb::DB* db = p->db_;
 
-  int pnum = lua_gettop(L);
-  if (pnum < 3) {
-    return luaL_error(L, "leveldb hmget len arr");
-  }
-
   size_t lk;
   const char* pk = luaL_checklstring(L, 2, &lk);
   string key(pk, lk);
-  lua_createtable(L, pnum - 2, 0);
+  int pnum = lua_gettop(L);
+  lua_createtable(L, 16, 0);
   for (int i = 3; i <= pnum; ++i) {
     size_t lhk;
     const char* phk = luaL_checklstring(L, i, &lhk);
@@ -213,16 +200,11 @@ static int hdel(lua_State* L) {
   Lleveldb* p = (Lleveldb*)lua_touserdata(L, 1);
   leveldb::DB* db = p->db_;
 
-  int pnum = lua_gettop(L);
-  if (pnum < 3) {
-    return luaL_error(L, "leveldb hdel len arr");
-  }
-
   size_t lk;
   const char* pk = luaL_checklstring(L, 2, &lk);
   string key(pk, lk);
   leveldb::WriteBatch batch;
-  for (int i = 3; i <= pnum; ++i) {
+  for (int i = 3; i <= lua_gettop(L); ++i) {
     size_t lhk;
     const char* phk = luaL_checklstring(L, i, &lhk);
     string hkey(phk, lhk);
@@ -231,6 +213,67 @@ static int hdel(lua_State* L) {
   }
   db->Write(leveldb::WriteOptions(), &batch);
   return 0;
+}
+
+static int hscan(lua_State* L) {
+  luaL_checktype(L, 1, LUA_TLIGHTUSERDATA);
+  Lleveldb* p = (Lleveldb*)lua_touserdata(L, 1);
+  leveldb::DB* db = p->db_;
+
+  string hkey, cursor;
+  size_t lk;
+  const char* pk = luaL_checklstring(L, 2, &lk);
+  hkey = {pk, lk};
+  if (!lua_isinteger(L, 3)) {
+    size_t lc;
+    const char* pc = luaL_checklstring(L, 3, &lc);
+    cursor = {pc, lc};
+  }
+  string match = "*";
+  int count = 10;
+  for (int i = 4; i <= lua_gettop(L); i += 2) {
+    size_t len;
+    const char* p = luaL_checklstring(L, i, &len);
+    string str(p, len);
+    std::transform(str.begin(), str.end(), str.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    if (str == "match") {
+      size_t lp;
+      const char* pp = luaL_checklstring(L, i + 1, &lp);
+      match = {pp, lp};
+    }
+    if (str == "count") {
+      count = luaL_checkinteger(L, i + 1);
+    }
+  }
+
+  string rcursor = "0";
+  int c = 0;
+  lua_createtable(L, 2, 0);
+  lua_createtable(L, 32, 0);
+  string start = hkey + SPLIT + cursor;
+  string end = hkey + SPLIT + SPLIT;
+  leveldb::Iterator* it = db->NewIterator(leveldb::ReadOptions());
+  for (it->Seek(start); it->Valid() && it->key().ToString() < end; it->Next()) {
+    string rk = it->key().ToString();
+    string key = rk.substr(hkey.size() + 1);
+    string val = it->value().ToString();
+    if (0 != fnmatch(match.data(), key.data(), 0)) continue;
+    if (c < count * 2) {
+      lua_pushlstring(L, key.data(), key.size());
+      lua_rawseti(L, -2, ++c);
+      lua_pushlstring(L, val.data(), val.size());
+      lua_rawseti(L, -2, ++c);
+    } else {
+      rcursor = key;
+      break;
+    }
+  }
+  delete it;
+  lua_rawseti(L, -2, 2);
+  lua_pushlstring(L, rcursor.data(), rcursor.size());
+  lua_rawseti(L, -2, 1);
+  return 1;
 }
 
 static int create(lua_State* L) {
@@ -265,13 +308,13 @@ static int release(lua_State* L) {
 }
 
 extern "C" {
-LUAMOD_API int luaopen_lgame_leveldb(lua_State* L) {
+LUAMOD_API int luaopen_lleveldb(lua_State* L) {
   luaL_Reg l[] = {
-      {"create", create}, {"release", release}, {"compact", compact},
-      {"keys", keys},     {"del", del},         {"hgetall", hgetall},
-      {"hkeys", hkeys},   {"hget", hget},       {"hmget", hmget},
-      {"hset", hmset},    {"hmset", hmset},     {"hdel", hdel},
-      {NULL, NULL}};
+      {"create", create},   {"release", release}, {"compact", compact},
+      {"keys", keys},       {"del", del},         {"hscan", hscan},
+      {"hgetall", hgetall}, {"hkeys", hkeys},     {"hget", hget},
+      {"hmget", hmget},     {"hset", hmset},      {"hmset", hmset},
+      {"hdel", hdel},       {NULL, NULL}};
   luaL_newlib(L, l);
   return 1;
 }
