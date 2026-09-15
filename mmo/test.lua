@@ -28,10 +28,13 @@ for i = 1, 10 do
         atk_type = i % 2,
         attr = {
             [enum.attr_hp] = 100,
+            [enum.attr_rhp] = 100,
             [enum.attr_atk] = 20,
             [enum.attr_def] = 10
-        }
+        },
+        buff = { idx = 0, data = {}, stack = {} }
     })
 end
 
-ins.use_skill(5, 101)
+ins.use_skill(5, 300)
+print(dump(ins.entities[5].attr))

@@ -19,6 +19,7 @@ local create_instance = function(input)
     local ins = {}
     ins.entities = entities
     ins.impl = impl
+    ins.core = core
 
     local genid = function()
         if data.idx > 0xfffffff then
@@ -33,7 +34,6 @@ local create_instance = function(input)
         obj.id = obj.id or genid()
         core:add_entity(obj.id, obj.x, obj.y, obj.dx, obj.dy, obj.atk_type)
         entities[obj.id] = obj
-        skill.cal_attr(obj)
 
         local ids = core:get_aoi(obj.id)
         aoicb(ins, enum.aoi_add, obj, ids)
@@ -83,10 +83,6 @@ local create_instance = function(input)
             end
             ::cont::
         end
-    end
-
-    ins.aoi_search = function(id, num, atk_tp, range_tp, p1, p2)
-        return core:aoi_search(id, num, atk_tp, range_tp, p1, p2)
     end
 
     ins.use_skill = function(id, skillid)
