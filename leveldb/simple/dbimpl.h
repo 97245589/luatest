@@ -26,12 +26,10 @@ struct Dbimpl {
     void del(const string& key);
   };
 
-  enum { MODE_SIMPLE, MODE_COMPLEX };
   leveldb::DB* db_ = nullptr;
   leveldb::Options options_;
-  int8_t mode_ = MODE_SIMPLE;
 
-  bool open(const string& db_name, size_t cachesize);
+  bool open(const string& db_name, int64_t cachesize);
   ~Dbimpl();
 
   void compact();

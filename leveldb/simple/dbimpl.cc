@@ -1,4 +1,6 @@
 #include <fnmatch.h>
+
+#include <iostream>
 using namespace std;
 
 #include "dbimpl.h"
@@ -12,14 +14,10 @@ Batch::Batch(Dbimpl& d) : d_(d) {}
 Batch::~Batch() { d_.db_->Write(leveldb::WriteOptions(), &batch_); }
 void Batch::put(const string& rawkey, const string& val) {
   batch_.Put(rawkey, val);
-  if (d_.mode_ != Dbimpl::MODE_COMPLEX) return;
 }
-void Batch::del(const string& rawkey) {
-  batch_.Delete(rawkey);
-  if (d_.mode_ != Dbimpl::MODE_COMPLEX) return;
-}
+void Batch::del(const string& rawkey) { batch_.Delete(rawkey); }
 
-bool Dbimpl::open(const std::string& db_name, size_t cache_size) {
+bool Dbimpl::open(const std::string& db_name, int64_t cache_size) {
   options_.create_if_missing = true;
   options_.compression = leveldb::kZstdCompression;
   options_.write_buffer_size = 8 * 1024 * 1024;

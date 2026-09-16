@@ -193,27 +193,10 @@ static int create(lua_State* L) {
   size_t len;
   const char* ps = luaL_checklstring(L, 1, &len);
   string name(ps, len);
-  size_t cache_size = lua_tointeger(L, 2);
+  int64_t cache_size = lua_tointeger(L, 2);
 
   Dbimpl* p = new Dbimpl();
   bool ok = p->open(name, cache_size);
-  if (!ok) {
-    delete p;
-    return luaL_error(L, "db create err");
-  }
-  lua_pushlightuserdata(L, p);
-  return 1;
-}
-
-static int create_complex(lua_State* L) {
-  size_t len;
-  const char* ps = luaL_checklstring(L, 1, &len);
-  string name(ps, len);
-  size_t cachesize = luaL_checkinteger(L, 2);
-
-  Dbimpl* p = new Dbimpl();
-  p->mode_ = Dbimpl::MODE_COMPLEX;
-  bool ok = p->open(name, cachesize);
   if (!ok) {
     delete p;
     return luaL_error(L, "db create err");
