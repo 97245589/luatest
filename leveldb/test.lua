@@ -1,5 +1,5 @@
 require "util"
-local db = require "lleveldb"
+local db = require "ldb"
 
 local hscan = function()
     local traversal = function(pdb, key, match, count, cb)
@@ -29,14 +29,17 @@ local hscan = function()
         db.hset(pdb, "test", i, i * 10)
     end
 
+    print(dump(db.hscan(pdb, "test", 0)))
+
     traversal(pdb, "test", "*5", 8, function(arr)
-        print(dump(arr))
+        print("*5*", dump(arr))
         return true
     end)
 
-    -- print(dump(db.hscan(pdb, "test", 0)))
-    -- print(dump(db.hscan(pdb, "test", 0, "count", 5)))
-    -- print(dump(db.hscan(pdb, "test", 0, "match", "*5", "COUNT", 15)))
+    traversal(pdb, "test", nil, 6, function(arr)
+        print("*", #arr)
+        return true
+    end)
 
     db.del(pdb, "test")
     db.compact(pdb)
@@ -54,7 +57,6 @@ local test = function()
     print(dump(db.hgetall(pdb, "test")))
     db.hdel(pdb, "test", 2, 3, 1)
     print(dump(db.hgetall(pdb, "test")))
-    print(dump(db.hkeys(pdb, "test")))
     db.del(pdb, "test")
     print(dump(db.keys(pdb, "*")))
     print(dump(db.hgetall(pdb, "test")))
