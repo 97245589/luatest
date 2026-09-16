@@ -25,19 +25,19 @@ struct Search {
 };
 
 struct Map {
-  static constexpr int16_t search_max_ = 3;
-  static constexpr int16_t cell_len_ = 4;
+  static constexpr int16_t search_max_ = 10;
+  static constexpr int16_t cell_len_ = 1;
   int16_t len_;
   int16_t wid_;
   Astar astar_;
 
   Map(int16_t len, int16_t wid);
 
-  using IDSET = hash_table<int64_t, __gnu_pbds::null_type>;
+  using IDSET = hashset<int64_t>;
   vector<Pos> search_order_;
-  hash_table<int64_t, Entity> entities_;
-  hash_table<Pos, IDSET, Pos> cell_entities_;
-  hash_table<Pos, __gnu_pbds::null_type, Pos> obstacle_;
+  hashmap<int64_t, Entity> entities_;
+  hashmap<Pos, IDSET, Pos> cell_entities_;
+  hashset<Pos, Pos> obstacle_;
 
   bool in_area(Pos p) {
     if (p.x_ < 0) return false;

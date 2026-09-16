@@ -2,8 +2,9 @@
 #define __COMMON_H__
 
 #include <cstdint>
-#include <ext/pb_ds/assoc_container.hpp>
-#define hash_table __gnu_pbds::cc_hash_table
+#include "parallel_hashmap/phmap.h"
+#define hashmap phmap::flat_hash_map
+#define hashset phmap::flat_hash_set
 
 struct Pos {
   int16_t x_, y_;

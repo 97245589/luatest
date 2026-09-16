@@ -27,8 +27,8 @@ void Astar::find(Pos s, Pos e, vector<Pos>& ret, bool quick) {
   ret.reserve(64);
   if (impassable(s) || impassable(e)) return;
   if (s == e) return;
-  hash_table<Pos, __gnu_pbds::null_type, Pos> closelist;
-  hash_table<Pos, Pos, Pos> pres;
+  hashset<Pos, Pos> closelist;
+  hashmap<Pos, Pos, Pos> pres;
   multiset<State> openlist;
   openlist.insert({s.x_, s.y_, 0, cost(s, e)});
 
