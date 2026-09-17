@@ -5,43 +5,69 @@ local SPLIT = string.char(0xff)
 
 local M = {}
 
-local traversal = function(start, end_, patt, count, cb)
+M.scan = function(cursor, patt, count)
     patt = patt or "*"
     count = count or 10
+    local start = ""
+    local end_ = SPLIT
+    if type(cursor) == "string" then
+        start = cursor
+    end
+    local arr = ldb.scan(pdb, start, end_, patt, count, 1)
+    local ret = {}
+    if #arr > count then
+        ret[1] = table.remove(arr)
+    else
+        ret[1] = 0
+    end
+    ret[2] = arr
+    return ret
+end
 
-    while true do
-        local arr = ldb.scan(pdb, start, end_, patt, count)
-        if #arr >= count * 2 + 2 then
-            table.remove(arr)
-            start = table.remove(arr)
-            if not cb(arr) then
-                return
-            end
-        else
-            cb(arr)
+local traversal = function(patt, count, cb)
+    local cursor
+    while cursor ~= 0 do
+        local ret = M.scan(cursor, patt, count)
+        cursor = ret[1]
+        if not cb(ret[2]) then
             return
         end
     end
 end
+M.traversal = traversal
 
-local parse_rawkey = function(rawkey)
-    return string.match(rawkey, "^(.-)" .. SPLIT .. "(.*)$")
+M.hscan = function(key, cursor, patt, count)
+    patt = patt or "*"
+    count = count or 10
+    local start
+    if type(cursor) == "string" then
+        start = cursor
+    else
+        start = key .. SPLIT
+    end
+    local end_ = key .. SPLIT .. SPLIT
+    local arr = ldb.scan(pdb, start, end_, patt, count)
+    local ret = {}
+    if #arr > 2 * count then
+        ret[1] = table.remove(arr)
+    else
+        ret[1] = 0
+    end
+    ret[2] = arr
+    return ret
 end
+
 local htraversal = function(key, patt, count, cb)
-    local start = key .. SPLIT
-    local end_ = start .. SPLIT
-    traversal(start, end_, patt, count, function(arr)
-        for i = 1, #arr, 2 do
-            local rawkey = arr[i]
-            local k, field = parse_rawkey(rawkey)
-            arr[i] = field
+    local cursor
+    while cursor ~= 0 do
+        local ret = M.hscan(key, cursor, patt, count)
+        cursor = ret[1]
+        if not cb(ret[2]) then
+            return
         end
-        if cb(arr) then
-            return true
-        end
-    end)
+    end
 end
-M.htraversal = htraversal
+M.htraversal = traversal
 
 M.keys = function(patt)
     if not patt then
@@ -49,13 +75,9 @@ M.keys = function(patt)
         return
     end
     local ret = {}
-    traversal("", SPLIT, patt, nil, function(arr)
-        for i = 1, #arr, 2 do
-            local k, field = parse_rawkey(arr[i])
-            if ret[#ret] ~= k then
-                table.insert(ret, k)
-            end
-        end
+    traversal(patt, 3, function(arr)
+        table.move(arr, 1, #arr, #ret + 1, ret)
+        return true
     end)
     return ret
 end
@@ -72,7 +94,7 @@ end
 
 M.hgetall = function(key)
     local ret = {}
-    htraversal(key, nil, 3, function(arr)
+    htraversal(key, "*", 10, function(arr)
         table.move(arr, 1, #arr, #ret + 1, ret)
         return true
     end)
@@ -97,7 +119,7 @@ end
 
 M.hdel = function(key, ...)
     local arr = table.pack(...)
-    for idx, field in pairs(arr) do
+    for idx, field in ipairs(arr) do
         local rawkey = key .. SPLIT .. field
         ldb.del(pdb, rawkey)
     end
@@ -118,6 +140,10 @@ M.hmget = function(key, ...)
         end
     end
     return ret
+end
+
+M.compact = function()
+    ldb.compact(pdb)
 end
 
 M.set_pdb = function(p)

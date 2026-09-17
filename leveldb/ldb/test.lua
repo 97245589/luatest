@@ -6,21 +6,21 @@ local p = ldb.create("db")
 db.set_pdb(p)
 
 local test = function()
-    db.del("test")
-    local t = os.time()
-    for i = 1, 200000 do
-        db.hset("test", i, i * 10)
+    for i = 1, 10 do
+        db.hmset(i, "data", i)
     end
-    print(os.time() - t, db.hget("test", 188888))
-    db.del("test")
-    print(#db.hgetall("test"))
+
+    print(dump(db.keys("*")))
+
+    for i = 1, 10 do
+        db.del(i)
+    end
 end
 test()
 
-local test1 = function()
+local test = function()
     db.del("test")
     db.hmset("test", 1, 10, 3, 30, 5, 50)
-    print(dump(db.keys("*")))
     print(dump(db.hgetall("test")))
     print(db.hget("test", 5))
     print(dump(db.hmget("test", 5, 10, 1)))
@@ -29,9 +29,7 @@ local test1 = function()
     print(dump(db.hgetall("test")))
     db.del("test")
     print("after del test")
-    print(dump(db.keys("*")))
     print(dump(db.hgetall("test")))
 end
 
-ldb.compact(p)
 ldb.release(p)

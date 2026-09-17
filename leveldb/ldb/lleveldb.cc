@@ -4,6 +4,7 @@ extern "C" {
 #include "lauxlib.h"
 }
 #include <cstdint>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -82,10 +83,25 @@ static int get(lua_State* L) {
   return 1;
 }
 
+static constexpr char SPLIT = 0xff;
+static void db_iter(Db* p, string& start, string& end,
+                    function<bool(string&, string&, string&)> cb) {
+  leveldb::Iterator* it = p->db_->NewIterator(leveldb::ReadOptions());
+  for (it->Seek(start); it->Valid() && it->key().ToString() < end; it->Next()) {
+    string rawkey = it->key().ToString();
+    string val = it->value().ToString();
+    size_t pos = rawkey.find(SPLIT);
+    if (pos == std::string::npos) continue;
+    string key = rawkey.substr(0, pos);
+    string field = rawkey.substr(pos + 1);
+    if (!cb(key, field, val)) break;
+  }
+  delete it;
+}
+
 static int scan(lua_State* L) {
   luaL_checktype(L, 1, LUA_TLIGHTUSERDATA);
   Db* p = (Db*)lua_touserdata(L, 1);
-
   size_t ls;
   const char* ps = luaL_checklstring(L, 2, &ls);
   string start(ps, ls);
@@ -96,22 +112,53 @@ static int scan(lua_State* L) {
   const char* pp = luaL_checklstring(L, 4, &lp);
   string patt(pp, lp);
   int count = luaL_checkinteger(L, 5);
+  bool scankey = lua_toboolean(L, 6);
 
-  int c = 0;
-  lua_createtable(L, 2 * count + 2, 0);
-  leveldb::Iterator* it = p->db_->NewIterator(leveldb::ReadOptions());
-  for (it->Seek(start); it->Valid() && it->key().ToString() < end; it->Next()) {
-    if (c > count * 2) break;
-    string key = it->key().ToString();
-    string val = it->value().ToString();
-    if (0 != fnmatch(patt.data(), key.data(), 0)) continue;
-    lua_pushlstring(L, key.data(), key.size());
-    lua_rawseti(L, -2, ++c);
-    lua_pushlstring(L, val.data(), val.size());
-    lua_rawseti(L, -2, ++c);
+  if (scankey) {
+    int c = 0;
+    lua_createtable(L, count + 1, 0);
+    string last;
+    db_iter(p, start, end, [&](string& key, string& field, string& val) {
+      if (0 != fnmatch(patt.data(), key.data(), 0)) return true;
+      if (last == key) return true;
+      last = key;
+      if (c < count) {
+        lua_pushlstring(L, key.data(), key.size());
+        lua_rawseti(L, -2, ++c);
+        return true;
+      }
+      if (c >= count) {
+        string rawkey = key + SPLIT + field;
+        lua_pushlstring(L, rawkey.data(), rawkey.size());
+        lua_rawseti(L, -2, ++c);
+        return false;
+      }
+      return false;
+    });
+    return 1;
+  } else {
+    int c = 0;
+    lua_createtable(L, 2 * count + 1, 0);
+    db_iter(p, start, end, [&](string& key, string& field, string& val) {
+      if (0 != fnmatch(patt.data(), field.data(), 0)) return true;
+      if (c < 2 * count) {
+        lua_pushlstring(L, field.data(), field.size());
+        lua_rawseti(L, -2, ++c);
+        lua_pushlstring(L, val.data(), val.size());
+        lua_rawseti(L, -2, ++c);
+        return true;
+      }
+      if (c >= 2 * count) {
+        string rawkey = key + SPLIT + field;
+        lua_pushlstring(L, rawkey.data(), rawkey.size());
+        lua_rawseti(L, -2, ++c);
+        return false;
+      }
+      return false;
+    });
+    return 1;
   }
-  delete it;
-  return 1;
+  return 0;
 }
 
 static int create(lua_State* L) {
