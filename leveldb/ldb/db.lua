@@ -5,7 +5,7 @@ local SPLIT = string.char(0xff)
 
 local M = {}
 
-M.scan = function(cursor, patt, count)
+local scan = function(cursor, patt, count)
     patt = patt or "*"
     count = count or 10
     local start = ""
@@ -13,21 +13,38 @@ M.scan = function(cursor, patt, count)
     if type(cursor) == "string" then
         start = cursor
     end
+
     local arr = ldb.scan(pdb, start, end_, patt, count, 1)
     local ret = {}
     if #arr > count then
         ret[1] = table.remove(arr)
     else
-        ret[1] = 0
+        ret[1] = "0"
     end
     ret[2] = arr
     return ret
 end
 
+M.scan = function(cursor, ...)
+    local arr = table.pack(...)
+    local match, count
+    for i = 1, #arr, 2 do
+        local name = string.lower(arr[i])
+        local v = arr[i + 1]
+        if name == "match" then
+            match = v
+        elseif name == "count" then
+            count = v
+        end
+    end
+    return scan(cursor, match, count)
+end
+
 local traversal = function(patt, count, cb)
-    local cursor
-    while cursor ~= 0 do
-        local ret = M.scan(cursor, patt, count)
+    local cursor = 0
+    while cursor ~= "0" do
+        local ret = scan(cursor, patt, count)
+        -- print(dump(ret))
         cursor = ret[1]
         if not cb(ret[2]) then
             return
@@ -36,31 +53,48 @@ local traversal = function(patt, count, cb)
 end
 M.traversal = traversal
 
-M.hscan = function(key, cursor, patt, count)
+local hscan = function(key, cursor, patt, count)
     patt = patt or "*"
     count = count or 10
-    local start
+    local start = key .. SPLIT
+    local end_ = key .. SPLIT .. SPLIT
     if type(cursor) == "string" then
         start = cursor
-    else
-        start = key .. SPLIT
     end
-    local end_ = key .. SPLIT .. SPLIT
     local arr = ldb.scan(pdb, start, end_, patt, count)
     local ret = {}
     if #arr > 2 * count then
         ret[1] = table.remove(arr)
     else
-        ret[1] = 0
+        ret[1] = "0"
     end
     ret[2] = arr
     return ret
 end
 
+M.hscan = function(key, cursor, ...)
+    local match, count
+    local arr = table.pack(...)
+    if #arr % 2 ~= 0 then
+        print("hscan err", #arr)
+        return
+    end
+    for i = 1, #arr, 2 do
+        local name = string.lower(arr[i])
+        local v = arr[i + 1]
+        if name == "match" then
+            match = v
+        elseif name == "count" then
+            count = v
+        end
+    end
+    return hscan(key, cursor, match, count)
+end
+
 local htraversal = function(key, patt, count, cb)
-    local cursor
-    while cursor ~= 0 do
-        local ret = M.hscan(key, cursor, patt, count)
+    local cursor = 0
+    while cursor ~= "0" do
+        local ret = hscan(key, cursor, patt, count)
         cursor = ret[1]
         if not cb(ret[2]) then
             return
@@ -75,7 +109,7 @@ M.keys = function(patt)
         return
     end
     local ret = {}
-    traversal(patt, 3, function(arr)
+    traversal(patt, nil, function(arr)
         table.move(arr, 1, #arr, #ret + 1, ret)
         return true
     end)
@@ -94,7 +128,7 @@ end
 
 M.hgetall = function(key)
     local ret = {}
-    htraversal(key, "*", 10, function(arr)
+    htraversal(key, nil, nil, function(arr)
         table.move(arr, 1, #arr, #ret + 1, ret)
         return true
     end)

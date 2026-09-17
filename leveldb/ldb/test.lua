@@ -5,18 +5,89 @@ local db = require "db"
 local p = ldb.create("db")
 db.set_pdb(p)
 
-local test = function()
-    for i = 1, 10 do
-        db.hmset(i, "data", i)
+local scan = function()
+    for i = 1, 20 do
+        db.hset(i, "test", i * 10)
     end
 
+    --[[
     print(dump(db.keys("*")))
+    print(dump(db.scan(0)))
+    print(dump(db.scan(0, "match", "1*", "COUNT", 3)))
+    ]]
 
-    for i = 1, 10 do
+    local tarveral = function(match, count, cb)
+        local input = { 0 }
+        if match then
+            table.insert(input, "match")
+            table.insert(input, match)
+        end
+        if count then
+            table.insert(input, "count")
+            table.insert(input, count)
+        end
+        local cursor = 0
+        while cursor ~= "0" do
+            input[1] = cursor
+            local ret = db.scan(table.unpack(input))
+            cursor = ret[1]
+            if not cb(ret[2]) then
+                return
+            end
+        end
+    end
+
+    tarveral("1*", 5, function(arr)
+        print("===", dump(arr))
+        return true
+    end)
+
+    for i = 1, 20 do
         db.del(i)
     end
 end
-test()
+scan()
+
+local hscan = function()
+    for i = 1, 50 do
+        db.hset("test", i, i * 10)
+    end
+
+    --[[
+    print(dump(db.hscan("test", 0)))
+    print(dump(db.hscan("test", 0, "match", "*3*")))
+    print(dump(db.hscan("test", 0, "MATCH", "*5", "COUNT", 3)))
+    ]]
+
+
+    local traversal = function(key, match, count, cb)
+        local input = { key, 0 }
+        if match then
+            table.insert(input, "match")
+            table.insert(input, match)
+        end
+        if count then
+            table.insert(input, "count")
+            table.insert(input, count)
+        end
+        local cursor = 0
+        while cursor ~= "0" do
+            input[2] = cursor
+            local ret = db.hscan(table.unpack(input))
+            cursor = ret[1]
+            if not cb(ret[2]) then
+                return
+            end
+        end
+    end
+
+    traversal("test", "*3*", nil, function(arr)
+        print("traversal", dump(arr))
+        return true
+    end)
+
+    db.del("test")
+end
 
 local test = function()
     db.del("test")
@@ -32,4 +103,5 @@ local test = function()
     print(dump(db.hgetall("test")))
 end
 
+ldb.compact(p)
 ldb.release(p)
