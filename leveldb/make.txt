@@ -9,3 +9,13 @@ $(ls db/*.cc table/*.cc util/*.cc | grep -vE "_test.cc|_bench.cc|env_windows.cc|
 helpers/memenv/memenv.cc \
 -lzstd -L/home/yao/github/zstd-1.5.7/lib \
 -lpthread -O2 -DNDEBUG -std=c++17 -s
+
+cmake .. \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+  -DLEVELDB_BUILD_TESTS=OFF \
+  -DLEVELDB_BUILD_BENCHMARKS=OFF \
+  -DHAVE_ZSTD=1 \
+  -DCMAKE_CXX_STANDARD=17 \
+  -DCMAKE_CXX_FLAGS="-O2 -fPIC -I/home/yao/github/zstd/lib" \
+  -DCMAKE_EXE_LINKER_FLAGS="-L/home/yao/github/zstd/lib" \
