@@ -4,6 +4,7 @@ extern "C" {
 #include <cstdint>
 #include <iostream>
 #include <map>
+#include <set>
 #include <sstream>
 #include <string>
 using namespace std;
@@ -169,6 +170,74 @@ struct Version {
   }
 };
 
+static const char* DUMPF = "DUMPF";
+struct Dumpf {
+  set<int64_t> set_;
+
+  static int add(lua_State* L) {
+    Dumpf** pp = (Dumpf**)luaL_checkudata(L, 1, DUMPF);
+    int64_t v = luaL_checkinteger(L, 2);
+    Dumpf& f = **pp;
+    f.set_.insert(v);
+    return 0;
+  }
+  static int del(lua_State* L) {
+    Dumpf** pp = (Dumpf**)luaL_checkudata(L, 1, DUMPF);
+    int64_t v = luaL_checkinteger(L, 2);
+    Dumpf& f = **pp;
+    f.set_.erase(v);
+    return 0;
+  }
+  static int find_less(lua_State* L) {
+    Dumpf** pp = (Dumpf**)luaL_checkudata(L, 1, DUMPF);
+    int64_t v = luaL_checkinteger(L, 2);
+    Dumpf& f = **pp;
+    auto& s = f.set_;
+    auto it = s.upper_bound(v);
+    if (it == s.begin()) return 0;
+    --it;
+    lua_pushinteger(L, *it);
+    return 1;
+  }
+  static int dump(lua_State* L) {
+    Dumpf** pp = (Dumpf**)luaL_checkudata(L, 1, DUMPF);
+    Dumpf& f = **pp;
+    auto& s = f.set_;
+    ostringstream oss;
+    oss << "size: " << s.size() << endl;
+    for (int64_t v : s) {
+      oss << v << " ";
+    }
+    oss << endl;
+    string ret = oss.str();
+    lua_pushlstring(L, ret.data(), ret.size());
+    return 1;
+  }
+  static int gc(lua_State* L) {
+    Dumpf** pp = (Dumpf**)luaL_checkudata(L, 1, DUMPF);
+    delete *pp;
+    return 0;
+  }
+  static int create(lua_State* L) {
+    Dumpf* p = new Dumpf();
+    Dumpf** pp = (Dumpf**)lua_newuserdata(L, sizeof(p));
+    *pp = p;
+    if (luaL_newmetatable(L, DUMPF)) {
+      luaL_Reg l[] = {{"add", add},
+                      {"del", del},
+                      {"find_less", find_less},
+                      {"dump", dump},
+                      {NULL, NULL}};
+      luaL_newlib(L, l);
+      lua_setfield(L, -2, "__index");
+      lua_pushcfunction(L, gc);
+      lua_setfield(L, -2, "__gc");
+    }
+    lua_setmetatable(L, -2);
+    return 1;
+  }
+};
+
 static const char* SLOT = "SLOT";
 struct Slot {
   map<int, int> slot_group_;
@@ -227,6 +296,7 @@ extern "C" {
 LUAMOD_API int luaopen_ldbtool(lua_State* L) {
   luaL_Reg l[] = {{"create_slot", Slot::create},
                   {"create_version", Version::create},
+                  {"create_dumpf", Dumpf::create},
                   {NULL, NULL}};
   luaL_newlib(L, l);
   return 1;

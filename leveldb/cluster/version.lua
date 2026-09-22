@@ -2,9 +2,11 @@ local ldbtool = require "ldbtool"
 
 local VERSION
 local FILE_VERSION = 1000
+local DUMP_MAX = 3
 local DIR = "version/"
 local version_path = DIR .. "version"
 
+local dumpf_core
 local curr_ins
 local M = {}
 
@@ -33,7 +35,7 @@ local create_ins = function(minversion)
     end
 
     ins.gen_file = function()
-        local file_path = DIR .. minversion .. "-" .. VERSION
+        local file_path = DIR .. minversion
         local dumpf = io.open(file_path, "w")
         dumpf:write(core:seri())
         dumpf:close()
@@ -43,6 +45,7 @@ local create_ins = function(minversion)
         vf:close()
         ins.gen_file()
         curr_ins = nil
+        dumpf_core:add(minversion)
     end
     curr_ins = ins
     return ins
@@ -85,13 +88,58 @@ M.revert = function()
     return ins
 end
 
-M.init = function()
-    os.execute("mkdir " .. DIR .. " >/dev/null 2>&1")
-    local rok = M.revert()
-    if not rok then
-        M.create_ins(1)
+M.repair = function()
+    local files = M.get_dump_files()
+    local lastf = files[1]
+    if not lastf then
+        return
     end
 end
+
+M.get_dump_files = function()
+    local str = popen("ls version")
+    local ret = split(str, " \n")
+    local arr = {}
+    for _, v in ipairs(ret) do
+        local num = tonumber(v)
+        if num then
+            table.insert(arr, num)
+        end
+    end
+    table.sort(arr, function(lhs, rhs)
+        return lhs > rhs
+    end)
+    return arr
+end
+
+M.del_dump_files = function()
+    local files = M.get_dump_files()
+    while #files > DUMP_MAX do
+        local f = table.remove(files)
+        execute("rm " .. DIR .. f)
+    end
+end
+
+M.sort_dump_files = function()
+    local files = M.get_dump_files()
+    dumpf_core = ldbtool.create_dumpf()
+    for _, f in pairs(files) do
+        dumpf_core:add(f)
+    end
+    print(dumpf_core:dump())
+end
+
+M.init = function()
+    execute("mkdir " .. DIR)
+    if not M.revert() then
+        M.create_ins(1)
+    end
+    M.sort_dump_files()
+end
 -- M.init()
+
+M.report_version = function(version)
+
+end
 
 return M
