@@ -1,7 +1,7 @@
-local ldb = require "lleveldb"
+local ldb = require "lgame.leveldb"
 local pdb
 
-local SPLIT = string.char(0xff)
+local SEPARATOR = string.char(0xff)
 
 local M = {}
 
@@ -9,7 +9,7 @@ local scan = function(cursor, patt, count)
     patt = patt or "*"
     count = count or 10
     local start = ""
-    local end_ = SPLIT
+    local end_ = SEPARATOR
     if type(cursor) == "string" then
         start = cursor
     end
@@ -56,8 +56,8 @@ M.traversal = traversal
 local hscan = function(key, cursor, patt, count)
     patt = patt or "*"
     count = count or 10
-    local start = key .. SPLIT
-    local end_ = key .. SPLIT .. SPLIT
+    local start = key .. SEPARATOR
+    local end_ = key .. SEPARATOR .. SEPARATOR
     if type(cursor) == "string" then
         start = cursor
     end
@@ -120,7 +120,7 @@ M.del = function(key)
     htraversal(key, nil, nil, function(arr)
         for i = 1, #arr, 2 do
             local field = arr[i]
-            ldb.del(pdb, key .. SPLIT .. field)
+            M.hdel(key, field)
         end
         return true
     end)
@@ -147,20 +147,20 @@ M.hmset = function(key, ...)
 end
 
 M.hset = function(key, field, val)
-    local rawkey = key .. SPLIT .. field
+    local rawkey = key .. SEPARATOR .. field
     ldb.put(pdb, rawkey, val)
 end
 
 M.hdel = function(key, ...)
     local arr = table.pack(...)
     for idx, field in ipairs(arr) do
-        local rawkey = key .. SPLIT .. field
+        local rawkey = key .. SEPARATOR .. field
         ldb.del(pdb, rawkey)
     end
 end
 
 M.hget = function(key, field)
-    local rawkey = key .. SPLIT .. field
+    local rawkey = key .. SEPARATOR .. field
     return ldb.get(pdb, rawkey)
 end
 
